@@ -182,6 +182,10 @@ class AvroToCSharp:
                     return self.generate_embedded_union(class_name, field_name, non_null_types, parent_namespace, write_file=True)
         elif isinstance(avro_type, dict):
             # Handle complex types: records, enums, arrays, and maps
+            if self.system_xml_annotation and not self.avro_annotation:
+                xml_type = {'decimal': 'decimal', 'dateTime': 'DateTime'}.get(avro_type.get('xmltype', ''))
+                if xml_type:
+                    return xml_type
             if avro_type['type'] in ['record', 'enum']:
                 return self.generate_class_or_enum(avro_type, parent_namespace, write_file=True)
             elif avro_type['type'] == 'array':
@@ -216,10 +220,11 @@ class AvroToCSharp:
 
         # Add XML serialization attribute for the class if enabled
         if self.system_xml_annotation:
+            xml_name = avro_schema.get('xmlname', class_name)
             if xml_namespace:
-                class_definition += f"[XmlRoot(\"{class_name}\", Namespace=\"{xml_namespace}\")]\n"
+                class_definition += f"[XmlRoot(\"{xml_name}\", Namespace=\"{xml_namespace}\")]\n"
             else:
-                class_definition += f"[XmlRoot(\"{class_name}\")]\n"
+                class_definition += f"[XmlRoot(\"{xml_name}\")]\n"
 
         if self.protobuf_net_annotation:
             class_definition += "[ProtoContract]\n"
@@ -231,6 +236,17 @@ class AvroToCSharp:
         fields = avro_schema.get('fields', [])
         property_names = self.get_csharp_property_names(fields, class_name)
         fields_str = [self.generate_property(index + 1, field, class_name, avro_namespace, property_names[index]) for index, field in enumerate(fields)]
+        if self.system_xml_annotation:
+            used_names = {name.lstrip('@') for name in property_names}
+            used_names.add(class_name)
+            for field, property_name in zip(fields, property_names):
+                if field.get('xmlkind') == 'choice':
+                    fields_str.append(self.generate_xml_choice_properties(
+                        field, class_name, avro_namespace, property_name, used_names))
+                elif field.get('xmloptional') and field.get('xmlkind') == 'element':
+                    fields_str.append(
+                        f'{INDENT}/// <summary>Whether the optional XML element is present.</summary>\n'
+                        f'{INDENT}public bool ShouldSerialize{property_name.lstrip("@")}() => {property_name} is not null;\n')
         class_body = "\n".join(fields_str)
         class_definition += f"public partial class {class_name}"
         if self.avro_annotation:
@@ -791,6 +807,64 @@ class AvroToCSharp:
             return avro_type.get('type') == 'enum'
         return False
 
+    def generate_xml_choice_properties(self, field: Dict, class_name: str, parent_namespace: str,
+                                       property_name: str, used_names: set[str]) -> str:
+        """Expose XSD choice elements without serializing the synthetic Avro records."""
+        branches = field['type']
+        if len(branches) == 1:
+            branch, = branches
+            member = branch['fields'][0]
+            branch_type = self.convert_avro_type_to_csharp(class_name, field['name'], branch, parent_namespace)
+            accessors = [(branch_type, member, '', f'new {branch_type}')]
+        else:
+            resolver = self.convert_avro_type_to_csharp(class_name, field['name'], branches, parent_namespace)
+            accessors = []
+            for branch in branches:
+                branch_type = self.convert_avro_type_to_csharp(class_name, field['name'], branch, parent_namespace)
+                slot = branch_type.rsplit('.', 1)[-1]
+                accessors.append((branch_type, branch['fields'][0], f'?.{slot}', f'new {resolver}'))
+        result = []
+        for branch_type, member, access, constructor in accessors:
+            branch_name = branch_type.rsplit('.', 1)[-1]
+            member_name = self.get_csharp_property_names([member], branch_name)[0]
+            value_type = self.convert_avro_type_to_csharp(branch_name, member['name'], member['type'], parent_namespace)
+            proxy = f"Xml{property_name.lstrip('@')}{pascal(member['name'])}"
+            while proxy in used_names or f'ShouldSerialize{proxy}' in used_names:
+                proxy += '_'
+            used_names.update((proxy, f'ShouldSerialize{proxy}'))
+            getter = f'{property_name}{access}?.{member_name}'
+            proxy_type = value_type.rstrip('?')
+            value = 'item'
+            if proxy_type.startswith('List<'):
+                proxy_type = proxy_type[5:-1] + '[]'
+                getter += '?.ToArray()'
+                value = 'item.ToList()'
+            initialize = f'new {branch_type} {{ {member_name} = {value} }}'
+            assignment = f'{constructor}({initialize})' if access else initialize
+            result.append(
+                f'{INDENT}/// <summary>XML representation of the {member["name"]} choice.</summary>\n'
+                f'{INDENT}[XmlElement("{member["name"]}")]\n'
+                f'{self.generate_xml_only_attributes()}'
+                f'{INDENT}public {proxy_type}? {proxy}\n'
+                f'{INDENT}{{\n'
+                f'{INDENT*2}get => {getter};\n'
+                f'{INDENT*2}set {{ if (value is {{ }} item) {property_name} = {assignment}; }}\n'
+                f'{INDENT}}}\n'
+                f'{INDENT}/// <summary>Whether this XML choice is selected.</summary>\n'
+                f'{INDENT}public bool ShouldSerialize{proxy}() => {proxy} is not null;\n'
+            )
+        return '\n'.join(result)
+
+    def generate_xml_only_attributes(self) -> str:
+        """Exclude XML surrogate properties from any other enabled serializer."""
+        attributes = (
+            (self.system_text_json_annotation, 'System.Text.Json.Serialization.JsonIgnore'),
+            (self.newtonsoft_json_annotation, 'Newtonsoft.Json.JsonIgnore'),
+            (self.msgpack_annotation, 'IgnoreMember'),
+            (self.cbor_annotation, 'Dahomey.Cbor.Attributes.CborIgnore'),
+        )
+        return ''.join(f'{INDENT}[{name}]\n' for enabled, name in attributes if enabled)
+
     def generate_property(self, field_index: int, field: Dict, class_name: str, parent_namespace: str, property_name: str | None = None) -> str:
         """ Generates a property """
         is_enum_type = self.is_enum_type(field['type'])
@@ -814,6 +888,10 @@ class AvroToCSharp:
                 prop += f"{INDENT}[XmlElement(\"{annotation_name}\")]\n"
             elif xmlkind == 'attribute':
                 prop += f"{INDENT}[XmlAttribute(\"{annotation_name}\")]\n"
+            elif xmlkind == 'text':
+                prop += f"{INDENT}[XmlText]\n"
+            elif xmlkind == 'choice':
+                prop += f"{INDENT}[XmlIgnore]\n"
         
         # Add MessagePack serialization attribute if enabled
         if self.msgpack_annotation:
@@ -1107,7 +1185,7 @@ class AvroToCSharp:
             'long': '42L',
             'float': '3.14f',
             'double': '3.14',
-            'decimal': '3.14d',
+            'decimal': '3.14m',
             'byte[]': 'new byte[] { 0x01, 0x02, 0x03 }',
             'null': 'null',
             'Date': 'new Date()',
