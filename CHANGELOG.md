@@ -2,6 +2,16 @@ All notable changes to Avrotize are documented in this file.
 
 ## [Unreleased]
 
+## [3.9.7] - 2026-11-18
+
+### Fixed
+
+- XSD-derived C# models preserve XML root names and namespaces, choice
+  elements, and text values with attributes. Absent optional values remain
+  omitted when serialized back to XML.
+- Generated Python packages now declare the `avro` runtime dependency when
+  Avro annotations are enabled ([#585](https://github.com/clemensv/avrotize/issues/585)).
+
 ## [3.9.6] - 2026-11-17
 
 ### Added

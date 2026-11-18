@@ -8,13 +8,13 @@
     "source": "github",
     "id": "clemensv/avrotize"
   },
-  "version": "3.9.6",
+  "version": "3.9.7",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "avrotize",
-      "version": "3.9.6",
+      "version": "3.9.7",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
