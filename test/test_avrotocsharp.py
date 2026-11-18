@@ -8,12 +8,14 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 from os import path, getcwd
+from pathlib import Path
 
 import pytest
 
 from avrotize.avrotocsharp import convert_avro_to_csharp
 from avrotize.constants import CSHARP_AVRO_VERSION
 from avrotize.jsonstoavro import convert_jsons_to_avro
+from avrotize.xsdtoavro import convert_xsd_to_avro
 
 current_script_path = os.path.abspath(__file__)
 project_root = os.path.dirname(os.path.dirname(current_script_path))
@@ -24,6 +26,71 @@ class TestAvroToCSharp(unittest.TestCase):
     
     # Timeout in seconds for dotnet commands
     DOTNET_TIMEOUT = 120
+
+    def test_xsd_document_round_trips_as_xml(self):
+        xsd = """<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+            xmlns="urn:example:payment" targetNamespace="urn:example:payment"
+            elementFormDefault="qualified">
+          <xs:element name="Document" type="Document"/>
+          <xs:complexType name="Document"><xs:sequence>
+            <xs:element name="Amount" type="Amount"/>
+            <xs:element name="Account" type="Account"/>
+            <xs:element name="Timestamp" type="xs:dateTime"/>
+            <xs:element name="Retry" type="xs:int" minOccurs="0"/>
+          </xs:sequence></xs:complexType>
+          <xs:complexType name="Amount"><xs:simpleContent><xs:extension base="xs:decimal">
+            <xs:attribute name="Currency" type="xs:string" use="required"/>
+          </xs:extension></xs:simpleContent></xs:complexType>
+          <xs:complexType name="Account"><xs:choice>
+            <xs:element name="Local" type="xs:int"/>
+            <xs:element name="International" type="xs:string"/>
+          </xs:choice></xs:complexType>
+        </xs:schema>"""
+        program = """
+using System;
+using System.IO;
+using System.Linq;
+using System.Xml.Linq;
+using System.Xml.Schema;
+using XmlProbe.Wire;
+
+var schemas = new XmlSchemaSet();
+schemas.Add("urn:example:payment", args[0]);
+foreach (var branch in new[] { "<Local>0</Local>", "<International>EX123</International>" })
+{
+    var input = XDocument.Parse(
+        $"<Document xmlns='urn:example:payment'><Amount Currency='EUR'>12.50</Amount>" +
+        $"<Account>{branch}</Account><Timestamp>2026-01-23T12:00:00Z</Timestamp></Document>");
+    var model = Document.FromData(input.ToString(), "application/xml");
+    var output = XDocument.Load(new MemoryStream(model!.ToByteArray("application/xml")));
+    output.Validate(schemas, (_, e) => throw e.Exception);
+    if (!input.Root!.Descendants().Select(e => (e.Name, e.Value))
+            .SequenceEqual(output.Root!.Descendants().Select(e => (e.Name, e.Value))) ||
+        (string?)output.Root.Elements().First().Attribute("Currency") != "EUR")
+        throw new Exception(output.ToString());
+}
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            xsd_path = path.join(directory, "wire.xsd")
+            avro_path = path.join(directory, "wire.avsc")
+            with open(xsd_path, "w", encoding="utf-8") as file:
+                file.write(xsd)
+            convert_xsd_to_avro(xsd_path, avro_path)
+            convert_avro_to_csharp(avro_path, directory, base_namespace="XmlProbe", system_xml_annotation=True)
+            app = path.join(directory, "runner")
+            os.mkdir(app)
+            project = path.join(app, "WireTest.csproj")
+            models, = Path(directory, "src").glob("*.csproj")
+            with open(project, "w", encoding="utf-8") as file:
+                file.write(f"""<Project Sdk="Microsoft.NET.Sdk">
+                  <PropertyGroup><TargetFramework>net10.0</TargetFramework>
+                    <OutputType>Exe</OutputType><Nullable>enable</Nullable></PropertyGroup>
+                  <ItemGroup><ProjectReference Include="{models}" /></ItemGroup>
+                </Project>""")
+            with open(path.join(app, "Program.cs"), "w", encoding="utf-8") as file:
+                file.write(program)
+            subprocess.run(["dotnet", "run", "--project", project, "--", xsd_path],
+                           check=True, timeout=self.DOTNET_TIMEOUT)
     
     def run_convert_avsc_to_csharp(self, avsc_name, system_text_json_annotation=False, newtonsoft_json_annotation=False, avro_annotation=False, system_xml_annotation=False, msgpack_annotation=False, cbor_annotation=False, pascal_properties=False, protobuf_net_annotation=False):
         """ Test converting an avsc file to C# """

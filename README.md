@@ -682,7 +682,7 @@ Parameters:
 
 - `<path_to_xsd_file>`: The path to the XML schema file to be converted. If omitted, the file is read from stdin.
 - `--out`: The path to the Avrotize Schema file to write the conversion result to. If omitted, the output is directed to stdout.
-- `--namespace`: (optional) The namespace to use in the Avrotize Schema if the XML schema does not define a namespace.
+- `--namespace`: (optional) The namespace to use in the Avrotize Schema. Defaults to the input file's lowercase stem. Each dot-separated component is normalized to an Avro identifier (for example, `sample.001.02` becomes `sample._001._02`). This does not change the XML target namespace.
 
 Conversion notes:
 
@@ -691,7 +691,7 @@ Conversion notes:
 - `simpleType` declarations that define enums are mapped to `enum` types in Avro. All other facets are ignored and simple types are mapped to the corresponding Avro type.
 - `complexType` declarations that have simple content where a base type is augmented with attributes is mapped to a record type in Avro. Any other facets defined on the complex type are ignored.
 - If the schema defines a single root element, the tool will emit a single Avro record type. If the schema defines multiple root elements, the tool will emit a union of record types, each corresponding to a root element.
-- All fields in the resulting Avrotize Schema are annotated with an `xmlkind` extension attribute that indicates whether the field was an `element` or an `attribute` in the XML schema.
+- XSD-derived fields use `xmlkind` metadata to distinguish elements, attributes, simple-content text, and choices. For XSDs with qualified elements, C# generation with XML annotations can use this metadata to serialize element-only choices and simple content and preserve the QName of an inline root or a same-named global element and complex type. Use the original XSD to validate payloads; the intermediate schema does not preserve all XSD constraints.
 
 ### Convert Avrotize Schema to XML schema
 

@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple
 import xml.etree.ElementTree as ET
 import json
 from urllib.parse import urlparse
-from avrotize.common import avro_namespace, deduplicate_any_value_record, generic_type
+from avrotize.common import avro_name, avro_namespace, deduplicate_any_value_record, generic_type
 
 from avrotize.dependency_resolver import inline_dependencies_of, sort_messages_by_dependencies
 
@@ -76,13 +76,13 @@ class XSDToAvro:
                 'integer': 'int',
                 'long': 'long',
                 'short': 'int',
-                'decimal': {'type': 'bytes', 'logicalType': 'decimal', 'precision': 32, 'scale': 6},
+                'decimal': {'type': 'bytes', 'logicalType': 'decimal', 'precision': 32, 'scale': 6, 'xmltype': 'decimal'},
                 'float': 'float',
                 'double': 'double',
                 'boolean': 'boolean',
                 'byte': 'int',
                 'date': {'type': 'int', 'logicalType': 'date'},
-                'dateTime': {'type': 'long', 'logicalType': 'timestamp-millis'},
+                'dateTime': {'type': 'long', 'logicalType': 'timestamp-millis', 'xmltype': 'dateTime'},
                 'time': {'type': 'int', 'logicalType': 'time-millis'},
                 'duration': {'type': 'int', 'logicalType': 'duration'},
                 'gYear': {'type': 'string'},
@@ -157,6 +157,8 @@ class XSDToAvro:
         if min_occurs is not None and min_occurs == '0':
             avro_type = ['null', avro_type]
         avro_field = {'name': name, 'type': avro_type}
+        if min_occurs == '0':
+            avro_field['xmloptional'] = True
         annotation = element.find(f'{{{XSD_NAMESPACE}}}annotation', namespaces)
         if annotation is not None:
             documentation = annotation.find(
@@ -215,10 +217,11 @@ class XSDToAvro:
                 dependencies = list(set(dependencies))
             choices_field = {
                 'name': f'{complex_type.attrib.get("name")}',
-                'type': choices
+                'type': choices,
+                'xmlkind': 'choice'
             }
             fields.append(choices_field)
-        for attribute in complex_type.findall(f'.{{{XSD_NAMESPACE}}}attribute', namespaces):
+        for attribute in complex_type.findall(f'{{{XSD_NAMESPACE}}}attribute', namespaces):
             field = self.process_element(attribute, namespaces, dependencies)
             field['xmlkind'] = 'attribute'
             fields.append(field)
@@ -229,9 +232,10 @@ class XSDToAvro:
                 base_type = simple_content.attrib.get('base')
                 if base_type:
                     fields.append(
-                        {"name": "value", "type": self.xsd_to_avro_type(base_type, namespaces)})
-                    for se in simple_content.findall(f'{{{XSD_NAMESPACE}}}attribute', namespaces):
-                        field = self.process_element(se, namespaces, dependencies)
+                        {"name": "value", "type": self.xsd_to_avro_type(base_type, namespaces),
+                         "xmlkind": "text"})
+                    for attribute in simple_content.findall(f'{{{XSD_NAMESPACE}}}attribute', namespaces):
+                        field = self.process_element(attribute, namespaces, dependencies)
                         field['xmlkind'] = 'attribute'
                         fields.append(field)
                 else:
@@ -284,6 +288,7 @@ class XSDToAvro:
                     logical_type = {
                         'type': 'bytes',
                         'logicalType': 'decimal',
+                        'xmltype': 'decimal',
                         'precision': int(precision.attrib.get('value', 32)) if isinstance(precision, ET.Element) else 32,
                         'scale': int(scale.attrib.get('value', 6)) if isinstance(scale, ET.Element) else 6,
                     }
@@ -330,6 +335,8 @@ class XSDToAvro:
             complex_type.set('name', element.get('name', ''))
             avro_complex_type = self.process_complex_type(
                 complex_type, namespaces)
+            avro_complex_type['xmlns'] = self.xml_namespace
+            avro_complex_type['xmlname'] = element.get('name')
             return avro_complex_type
 
     def extract_xml_namespaces(self, xml_str: str):
@@ -355,7 +362,7 @@ class XSDToAvro:
         if not code_namespace:
             self.avro_namespace = self.xsd_targetnamespace_to_avro_namespace(target_namespace)
         else:
-            self.avro_namespace = code_namespace
+            self.avro_namespace = '.'.join(avro_name(part) for part in code_namespace.split('.'))
         ET.register_namespace(namespaces[XSD_NAMESPACE], XSD_NAMESPACE)
         avro_schema: List[dict | list | str] = []
 
@@ -371,6 +378,16 @@ class XSDToAvro:
 
         top_level_elements = root.findall(
             f'{{{XSD_NAMESPACE}}}element', namespaces)
+        # A same-named global element and complex type share a generated class.
+        # Keep the Avro envelope, but give that class the real XML root QName.
+        named_roots = {
+            element.get('name') for element in top_level_elements
+            if element.get('type') and element.get('type', '').rsplit(':', 1)[-1] == element.get('name')
+        }
+        for definition in avro_schema:
+            if isinstance(definition, dict) and definition.get('type') == 'record' and definition.get('name') in named_roots:
+                definition['xmlns'] = self.xml_namespace
+                definition['xmlname'] = definition['name']
         if len(top_level_elements) == 1:
             record = self.process_top_level_element(
                 top_level_elements[0], namespaces)
