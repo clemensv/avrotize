@@ -704,6 +704,7 @@ class AvroToPython:
         pyproject_content = process_template(
             "avrotopython/pyproject_toml.jinja",
             package_name=self.base_package.replace('_', '-'),
+            avro_annotation=self.avro_annotation,
             xml_annotation=self.xml_annotation,
         )
         with open(os.path.join(self.output_dir, 'pyproject.toml'), 'w', encoding='utf-8') as file:

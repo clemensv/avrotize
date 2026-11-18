@@ -8,6 +8,9 @@ packages = [ { include = "{{ package_name|replace('-','_')|lower }}", from="src"
 
 [tool.poetry.dependencies]
 python = "<4.0,>=3.10"
+{%- if avro_annotation %}
+avro = "^1.11.3"
+{%- endif %}
 {%- if xml_annotation %}
 xsdata = "^26.2"
 {%- endif %}

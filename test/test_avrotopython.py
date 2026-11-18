@@ -19,6 +19,32 @@ sys.path.append(project_root)
 
 
 class TestAvroToPython(unittest.TestCase):
+    def test_pyproject_declares_avro_runtime_only_with_avro_annotation(self):
+        import tomllib
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+
+        schema = {
+            "type": "record",
+            "name": "Reading",
+            "fields": [{"name": "value", "type": "string"}],
+        }
+        for avro_annotation in (False, True):
+            for json_annotation in (False, True):
+                with self.subTest(avro=avro_annotation, json=json_annotation):
+                    with tempfile.TemporaryDirectory(prefix="avrotize-issue585-") as output:
+                        convert_avro_schema_to_python(
+                            schema, output, package_name="sample",
+                            avro_annotation=avro_annotation,
+                            dataclasses_json_annotation=json_annotation,
+                        )
+                        with open(os.path.join(output, "pyproject.toml"), "rb") as project:
+                            dependencies = tomllib.load(project)["tool"]["poetry"]["dependencies"]
+                        if avro_annotation:
+                            self.assertEqual(dependencies["avro"], "^1.11.3")
+                        else:
+                            self.assertNotIn("avro", dependencies)
+
     def test_convert_address_avsc_to_python(self):
         """ Test converting an address.avsc file to Python """
         cwd = os.getcwd()
