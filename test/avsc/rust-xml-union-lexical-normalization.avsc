@@ -1,0 +1,438 @@
+[
+    {
+        "type": "record",
+        "name": "OptionalString",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "x",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "RequiredLong",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "x",
+                "type": "long"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "RequiredInt",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "x",
+                "type": "int"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "RequiredBool",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "x",
+                "type": "boolean"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "RequiredString",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "x",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "RenamedField",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string",
+                "altnames": {
+                    "xml": "wireValue"
+                }
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "OptionalRenamedField",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "value",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null,
+                "altnames": {
+                    "xml": "optionalWire"
+                }
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "AttributeField",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string",
+                "xmlkind": "attribute"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "ElementField",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "WireTag",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "FIRST",
+            "SECOND"
+        ],
+        "altenums": {
+            "xml": {
+                "FIRST": "wire-first",
+                "SECOND": "wire-second"
+            }
+        }
+    },
+    {
+        "type": "record",
+        "name": "InnerText",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "text",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "NestedTagA",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "UNIQUE",
+            "OVERLAP"
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "NestedTagB",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "OVERLAP"
+        ]
+    },
+    {
+        "type": "record",
+        "name": "InnerFlag",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "flag",
+                "type": "boolean"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedChoice",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "inner",
+                "type": [
+                    "InnerText",
+                    "InnerFlag"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedScalarChoice",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "scalar",
+                "type": [
+                    "NestedTagA",
+                    "NestedTagB"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NestedScalarFallback",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "scalar",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "OtherChoice",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "other",
+                "type": "boolean"
+            }
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "TagA",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "ALPHA"
+        ]
+    },
+    {
+        "type": "enum",
+        "name": "TagB",
+        "namespace": "issue484.xml_lexical",
+        "symbols": [
+            "BETA"
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Holder",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "numericForward",
+                "type": [
+                    "OptionalString",
+                    "RequiredLong"
+                ]
+            },
+            {
+                "name": "numericReverse",
+                "type": [
+                    "RequiredLong",
+                    "OptionalString"
+                ]
+            },
+            {
+                "name": "narrowRecordForward",
+                "type": [
+                    "OptionalString",
+                    "RequiredInt"
+                ]
+            },
+            {
+                "name": "narrowRecordReverse",
+                "type": [
+                    "RequiredInt",
+                    "OptionalString"
+                ]
+            },
+            {
+                "name": "boolForward",
+                "type": [
+                    "OptionalString",
+                    "RequiredBool"
+                ]
+            },
+            {
+                "name": "boolReverse",
+                "type": [
+                    "RequiredBool",
+                    "OptionalString"
+                ]
+            },
+            {
+                "name": "actualOverlap",
+                "type": [
+                    "OptionalString",
+                    "RequiredString"
+                ]
+            },
+            {
+                "name": "renamedField",
+                "type": [
+                    "RenamedField",
+                    "OtherChoice"
+                ]
+            },
+            {
+                "name": "optionalRenamedForward",
+                "type": [
+                    "OptionalRenamedField",
+                    "OtherChoice"
+                ]
+            },
+            {
+                "name": "optionalRenamedReverse",
+                "type": [
+                    "OtherChoice",
+                    "OptionalRenamedField"
+                ]
+            },
+            {
+                "name": "attributeField",
+                "type": [
+                    "AttributeField",
+                    "OtherChoice"
+                ]
+            },
+            {
+                "name": "attributeElement",
+                "type": [
+                    "AttributeField",
+                    "ElementField"
+                ]
+            },
+            {
+                "name": "alternateEnum",
+                "type": [
+                    "WireTag",
+                    "long"
+                ]
+            },
+            {
+                "name": "nested",
+                "type": [
+                    "NestedChoice",
+                    "OtherChoice"
+                ]
+            },
+            {
+                "name": "nestedScalar",
+                "type": [
+                    "NestedScalarChoice",
+                    "NestedScalarFallback"
+                ]
+            },
+            {
+                "name": "intLongForward",
+                "type": [
+                    "int",
+                    "long"
+                ]
+            },
+            {
+                "name": "intLongReverse",
+                "type": [
+                    "long",
+                    "int"
+                ]
+            },
+            {
+                "name": "enumForward",
+                "type": [
+                    "TagA",
+                    "TagB"
+                ]
+            },
+            {
+                "name": "enumReverse",
+                "type": [
+                    "TagB",
+                    "TagA"
+                ]
+            },
+            {
+                "name": "optionalStringForward",
+                "type": [
+                    "OptionalString",
+                    "string"
+                ]
+            },
+            {
+                "name": "optionalStringReverse",
+                "type": [
+                    "string",
+                    "OptionalString"
+                ]
+            },
+            {
+                "name": "textBoolForward",
+                "type": [
+                    "string",
+                    "boolean"
+                ]
+            },
+            {
+                "name": "textBoolReverse",
+                "type": [
+                    "boolean",
+                    "string"
+                ]
+            },
+            {
+                "name": "narrowForward",
+                "type": [
+                    "string",
+                    "int"
+                ]
+            },
+            {
+                "name": "narrowReverse",
+                "type": [
+                    "int",
+                    "string"
+                ]
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "CollectionHolder",
+        "namespace": "issue484.xml_lexical",
+        "fields": [
+            {
+                "name": "collection",
+                "type": [
+                    {
+                        "type": "array",
+                        "items": "string"
+                    },
+                    {
+                        "type": "map",
+                        "values": "string"
+                    }
+                ]
+            }
+        ]
+    }
+]

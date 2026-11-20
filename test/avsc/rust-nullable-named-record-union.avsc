@@ -1,0 +1,57 @@
+[
+    {
+        "type": "record",
+        "name": "Child",
+        "namespace": "issue484.named_nullable",
+        "fields": [
+            {
+                "name": "value",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "NamedContainer",
+        "namespace": "issue484.named_nullable",
+        "fields": [
+            {
+                "name": "child",
+                "type": [
+                    "null",
+                    "Child"
+                ],
+                "default": null
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "OptionalStringContainer",
+        "namespace": "issue484.named_nullable",
+        "fields": [
+            {
+                "name": "child",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Holder",
+        "namespace": "issue484.named_nullable",
+        "fields": [
+            {
+                "name": "choice",
+                "type": [
+                    "NamedContainer",
+                    "OptionalStringContainer"
+                ]
+            }
+        ]
+    }
+]

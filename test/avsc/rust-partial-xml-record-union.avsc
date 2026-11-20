@@ -1,0 +1,49 @@
+[
+    {
+        "type": "record",
+        "name": "A",
+        "namespace": "issue484.partial_xml",
+        "fields": [
+            {
+                "name": "x",
+                "type": [
+                    "null",
+                    "string"
+                ],
+                "default": null
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "B",
+        "namespace": "issue484.partial_xml",
+        "fields": [
+            {
+                "name": "x",
+                "type": "string"
+            }
+        ]
+    },
+    {
+        "type": "record",
+        "name": "Holder",
+        "namespace": "issue484.partial_xml",
+        "fields": [
+            {
+                "name": "forward",
+                "type": [
+                    "A",
+                    "B"
+                ]
+            },
+            {
+                "name": "reverse",
+                "type": [
+                    "B",
+                    "A"
+                ]
+            }
+        ]
+    }
+]

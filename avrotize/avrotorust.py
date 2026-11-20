@@ -2,6 +2,7 @@ import json
 import os
 import hashlib
 import re
+from collections import defaultdict, deque
 from typing import Dict, List, Union
 from avrotize.common import (
     is_generic_avro_type,
@@ -14,8 +15,253 @@ from avrotize.common import (
 from avrotize.rust_xml import xml_wire_name, xml_enum_wire_value
 
 INDENT = '    '
+XML_RECIPE_BLOCKED = object()
 
 JsonNode = Dict[str, 'JsonNode'] | List['JsonNode'] | str | None
+
+
+class JsonSignature:
+    """A bounded graph describing generated JSON matcher or value shapes."""
+
+    __slots__ = (
+        'root',
+        'nodes',
+        'node_count',
+        'edge_count',
+        '_canonical',
+        '_hash',
+        'canonical_visit_count',
+        'canonical_refinement_count',
+    )
+
+    def __init__(self, root: int, nodes: list[tuple]) -> None:
+        self.root = root
+        self.nodes = tuple(nodes)
+        self.node_count = len(self.nodes)
+        self.edge_count = sum(
+            len(data)
+            if kind in ('record', 'record_match', 'union')
+            else int(data is not None)
+            for kind, data in self.nodes
+        )
+        self.canonical_visit_count = 0
+        self.canonical_refinement_count = 0
+        self._canonical = self._canonicalize()
+        self._hash = hash(self._canonical)
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, JsonSignature):
+            return NotImplemented
+        return self._canonical == other._canonical
+
+    def __repr__(self) -> str:
+        return repr(self._canonical)
+
+    def _canonicalize(self):
+        """Returns the coarsest structural quotient without recursive walks."""
+        adjacency = []
+        base_edge_labels = []
+        reverse_graph = [[] for _ in self.nodes]
+        for node_id, (kind, data) in enumerate(self.nodes):
+            if data is None:
+                children = ()
+                edge_labels = ()
+            elif kind in ('record', 'record_match'):
+                children = tuple(child for _, child in data)
+                edge_labels = tuple(
+                    ('field', index, name)
+                    for index, (name, _) in enumerate(data)
+                )
+            elif kind == 'union':
+                children = data
+                edge_labels = tuple(
+                    ('branch', index)
+                    for index in range(len(data))
+                )
+            else:
+                children = (data,)
+                edge_labels = (('value',),)
+            adjacency.append(children)
+            base_edge_labels.append(edge_labels)
+            for child in children:
+                reverse_graph[child].append(node_id)
+
+        visited = set()
+        finish_order = []
+        for start in range(len(self.nodes)):
+            if start in visited:
+                continue
+            visited.add(start)
+            stack = [(start, 0)]
+            while stack:
+                node_id, child_index = stack[-1]
+                children = adjacency[node_id]
+                if child_index < len(children):
+                    child = children[child_index]
+                    stack[-1] = (node_id, child_index + 1)
+                    if child not in visited:
+                        visited.add(child)
+                        stack.append((child, 0))
+                else:
+                    finish_order.append(node_id)
+                    stack.pop()
+
+        components = []
+        component_of = [-1] * len(self.nodes)
+        for start in reversed(finish_order):
+            if component_of[start] != -1:
+                continue
+            component_id = len(components)
+            component = []
+            stack = [start]
+            component_of[start] = component_id
+            while stack:
+                node_id = stack.pop()
+                component.append(node_id)
+                for predecessor in reverse_graph[node_id]:
+                    if component_of[predecessor] == -1:
+                        component_of[predecessor] = component_id
+                        stack.append(predecessor)
+            components.append(component)
+
+        cyclic_components = [
+            len(component) > 1
+            or component[0] in adjacency[component[0]]
+            for component in components
+        ]
+        reverse = [[] for _ in self.nodes]
+        descriptors = []
+        for node_id, ((kind, _), children, edge_labels) in enumerate(zip(
+            self.nodes,
+            adjacency,
+            base_edge_labels,
+        )):
+            component_id = component_of[node_id]
+            scoped_labels = tuple(
+                edge_label + (
+                    'internal'
+                    if component_of[child] == component_id
+                    else 'external',
+                )
+                for child, edge_label in zip(children, edge_labels)
+            )
+            descriptors.append((
+                kind,
+                cyclic_components[component_id],
+                scoped_labels,
+            ))
+            for child, edge_label in zip(children, scoped_labels):
+                reverse[child].append((node_id, edge_label))
+
+        descriptor_blocks = {}
+        blocks = []
+        classes = [-1] * len(self.nodes)
+        for node_id, descriptor in enumerate(descriptors):
+            block_id = descriptor_blocks.get(descriptor)
+            if block_id is None:
+                block_id = len(blocks)
+                descriptor_blocks[descriptor] = block_id
+                blocks.append(set())
+            blocks[block_id].add(node_id)
+            classes[node_id] = block_id
+
+        worklist = list(range(len(blocks)))
+        queued = set(worklist)
+        worklist_index = 0
+        while worklist_index < len(worklist):
+            splitter_id = worklist[worklist_index]
+            worklist_index += 1
+            queued.discard(splitter_id)
+            splitter = tuple(blocks[splitter_id])
+            predecessors_by_label = defaultdict(list)
+            for target in splitter:
+                self.canonical_refinement_count += len(reverse[target])
+                for predecessor, edge_label in reverse[target]:
+                    predecessors_by_label[edge_label].append(predecessor)
+
+            for predecessors in predecessors_by_label.values():
+                affected_blocks = defaultdict(list)
+                for predecessor in predecessors:
+                    affected_blocks[classes[predecessor]].append(predecessor)
+
+                for block_id, inside_nodes in affected_blocks.items():
+                    members = blocks[block_id]
+                    if len(inside_nodes) == len(members):
+                        continue
+                    if len(inside_nodes) * 2 <= len(members):
+                        smaller = set(inside_nodes)
+                        members.difference_update(smaller)
+                        larger = members
+                        self.canonical_refinement_count += len(smaller)
+                    else:
+                        larger = set(inside_nodes)
+                        smaller = members.difference(larger)
+                        self.canonical_refinement_count += (
+                            len(inside_nodes) + len(members)
+                        )
+
+                    blocks[block_id] = larger
+                    new_block_id = len(blocks)
+                    blocks.append(smaller)
+                    for node_id in smaller:
+                        classes[node_id] = new_block_id
+
+                    queued.add(new_block_id)
+                    worklist.append(new_block_id)
+
+        representatives = {}
+        for node_id, class_id in enumerate(classes):
+            representatives.setdefault(class_id, node_id)
+        root_class = classes[self.root]
+        canonical_ids = {root_class: 0}
+        pending = [root_class]
+        definitions = []
+        pending_index = 0
+        while pending_index < len(pending):
+            class_id = pending[pending_index]
+            pending_index += 1
+            self.canonical_visit_count += 1
+            kind, data = self.nodes[representatives[class_id]]
+
+            def canonical_id(child_id):
+                child_class = classes[child_id]
+                if child_class not in canonical_ids:
+                    canonical_ids[child_class] = len(canonical_ids)
+                    pending.append(child_class)
+                return canonical_ids[child_class]
+
+            if data is None:
+                definition = (kind, None)
+            elif kind in ('record', 'record_match'):
+                definition = (
+                    kind,
+                    tuple(
+                        (name, canonical_id(child_id))
+                        for name, child_id in data
+                    ),
+                )
+            elif kind == 'union':
+                definition = (
+                    kind,
+                    tuple(canonical_id(child_id) for child_id in data),
+                )
+            else:
+                definition = (kind, canonical_id(data))
+            definitions.append(definition)
+        return tuple(definitions)
+
+
+class _JsonSignatureRef:
+    """Identity cursor used while comparing nodes from signature graphs."""
+
+    __slots__ = ('signature', 'node_id')
+
+    def __init__(self, signature: JsonSignature, node_id: int) -> None:
+        self.signature = signature
+        self.node_id = node_id
 
 
 class AvroToRust:
@@ -38,6 +284,7 @@ class AvroToRust:
         self.avro_named_types: Dict[str, Dict] = {}
         self.avro_short_names: Dict[str, List[str]] = {}
         self.avro_type_fullnames: Dict[int, str] = {}
+        self.indexed_rust_type_kinds: Dict[str, str] = {}
         self.union_path_identities: Dict[str, str] = {}
         self.union_alias_candidates: Dict[tuple[str, str], List[str]] = {}
         self.planned_alias_contents: Dict[str, str] = {}
@@ -47,6 +294,21 @@ class AvroToRust:
         self.planned_source_paths: set[tuple[str, ...]] = set()
         self.union_schema_targets: Dict[tuple, str] = {}
         self.union_targets_in_progress: set[tuple] = set()
+        self.json_round_trip_safety = None
+        self._json_signature_cache = None
+        self.json_safety_signature_stats = None
+        self._xml_predicate_signature_cache = {}
+        self.xml_predicate_signature_stats = {
+            'build_count': 0,
+            'node_count': 0,
+            'cache_hits': 0,
+        }
+        self._xml_discriminator_recipe_cache = {}
+        self.xml_discriminator_stats = {
+            'node_visits': 0,
+            'cache_hits': 0,
+            'max_output_size': 0,
+        }
         
     reserved_words = [
             'as', 'break', 'const', 'continue', 'crate', 'else', 'enum', 'extern', 'false', 'fn', 'for', 'if', 'impl',
@@ -302,6 +564,9 @@ class AvroToRust:
 
     def index_avro_named_types(self, node, parent_namespace=''):
         """Indexes named Avro types by canonical fullname."""
+        self.json_round_trip_safety = None
+        self._xml_predicate_signature_cache.clear()
+        self._xml_discriminator_recipe_cache.clear()
         if isinstance(node, list):
             for item in node:
                 self.index_avro_named_types(item, parent_namespace)
@@ -318,6 +583,18 @@ class AvroToRust:
             )
             self.avro_named_types[fullname] = node
             self.avro_type_fullnames[id(node)] = fullname
+            if node_type in ('record', 'enum'):
+                named_namespace = fullname.rpartition('.')[0]
+                rust_namespace = named_namespace.replace('.', '::').lower()
+                rust_name = self.safe_identifier(
+                    pascal(fullname.rsplit('.', 1)[-1])
+                )
+                rust_type = self.safe_package(
+                    self.concat_package(rust_namespace, rust_name)
+                )
+                self.indexed_rust_type_kinds[rust_type] = (
+                    'struct' if node_type == 'record' else 'enum'
+                )
             candidates = self.avro_short_names.setdefault(short_name, [])
             if fullname not in candidates:
                 candidates.append(fullname)
@@ -520,8 +797,25 @@ class AvroToRust:
                             if parent_element:
                                 relationships.add((parent_element, name))
                             nested_type = nested_field.get('type')
-                            if isinstance(nested_type, dict) and nested_type.get('type') == 'map':
-                                maps.add(name)
+                            if self.xml_type_contains_collection(
+                                nested_type,
+                                'map',
+                            ):
+                                if isinstance(nested_type, list):
+                                    elements.add('entries')
+                                    relationships.add((name, 'entries'))
+                                    maps.add('entries')
+                                else:
+                                    maps.add(name)
+                            if (
+                                isinstance(nested_type, list)
+                                and self.xml_type_contains_collection(
+                                    nested_type,
+                                    'array',
+                                )
+                            ):
+                                elements.add('item')
+                                relationships.add((name, 'item'))
                             records = nested_records(
                                 nested_type,
                                 record_avro_namespace,
@@ -571,6 +865,1005 @@ class AvroToRust:
         visit(avro_type, inherited_avro_namespace=initial_avro_namespace)
         return elements, attributes, maps, relationships, namespaces, attribute_owners
 
+    def xml_type_contains_collection(
+        self,
+        avro_type,
+        collection_type: str,
+    ) -> bool:
+        """Checks direct union branches for an XML collection wire shape."""
+        pending = [avro_type]
+        while pending:
+            node = pending.pop()
+            if isinstance(node, list):
+                pending.extend(node)
+            elif isinstance(node, dict):
+                node_type = node.get('type')
+                if node_type == collection_type:
+                    return True
+                if isinstance(node_type, (dict, list)):
+                    pending.append(node_type)
+        return False
+
+    def xml_union_representation(
+        self,
+        avro_type,
+        rust_type: str,
+        namespace: str,
+    ) -> str:
+        """Returns the XML wire wrapper used by a union variant."""
+        if rust_type.startswith('Vec<'):
+            return 'sequence'
+        if rust_type.startswith('std::collections::HashMap<'):
+            return 'map'
+        resolved = (
+            self.resolve_avro_named_type(avro_type, namespace)
+            if isinstance(avro_type, str)
+            else avro_type
+        )
+        if isinstance(resolved, dict) and resolved.get('type') == 'record':
+            return 'record'
+        return 'text'
+
+    def analysis_rust_type(self, avro_type, namespace: str):
+        """Maps schema types without generating or registering Rust artifacts."""
+        if isinstance(avro_type, str):
+            if is_any_value_type(avro_type):
+                return self.map_primitive_to_rust(avro_type, False)
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved is not None:
+                fullname = self.avro_type_fullnames[id(resolved)]
+                named_namespace = fullname.rpartition('.')[0]
+                rust_namespace = named_namespace.replace('.', '::').lower()
+                rust_name = self.safe_identifier(
+                    pascal(fullname.rsplit('.', 1)[-1])
+                )
+                if resolved.get('type') == 'fixed':
+                    if resolved.get('logicalType') == 'decimal':
+                        return 'f64'
+                    return 'Vec<u8>'
+                return self.safe_package(
+                    self.concat_package(rust_namespace, rust_name)
+                )
+            return self.map_primitive_to_rust(avro_type, False)
+        if isinstance(avro_type, list):
+            branches = [branch for branch in avro_type if branch != 'null']
+            if len(branches) != 1:
+                return None
+            inner = self.analysis_rust_type(branches[0], namespace)
+            if inner is None:
+                return None
+            if 'null' not in avro_type:
+                return inner
+            if (
+                not isinstance(branches[0], str)
+                or self.resolve_avro_named_type(
+                    branches[0],
+                    namespace,
+                ) is not None
+            ):
+                return inner
+            return inner if inner.startswith('Option<') else f'Option<{inner}>'
+        if not isinstance(avro_type, dict):
+            return None
+        node_type = avro_type.get('type')
+        if node_type in ('record', 'enum'):
+            fullname, _, short_name = self.canonical_avro_name(
+                avro_type['name'],
+                avro_type.get('namespace', namespace),
+            )
+            rust_namespace = fullname.rpartition('.')[0].replace(
+                '.',
+                '::',
+            ).lower()
+            return self.safe_package(self.concat_package(
+                rust_namespace,
+                self.safe_identifier(pascal(short_name)),
+            ))
+        if node_type == 'array':
+            item_type = self.analysis_rust_type(
+                avro_type.get('items'),
+                namespace,
+            )
+            return None if item_type is None else f'Vec<{item_type}>'
+        if node_type == 'map':
+            value_type = self.analysis_rust_type(
+                avro_type.get('values'),
+                namespace,
+            )
+            return (
+                None
+                if value_type is None
+                else f'std::collections::HashMap<String, {value_type}>'
+            )
+        if avro_type.get('logicalType') == 'date':
+            return 'chrono::NaiveDate'
+        if avro_type.get('logicalType') in ('time-millis', 'time-micros'):
+            return 'chrono::NaiveTime'
+        if avro_type.get('logicalType') in (
+            'timestamp-millis',
+            'timestamp-micros',
+        ):
+            return 'chrono::NaiveDateTime'
+        if avro_type.get('logicalType') == 'uuid':
+            return 'uuid::Uuid'
+        if node_type == 'fixed':
+            return (
+                'f64'
+                if avro_type.get('logicalType') == 'decimal'
+                else 'Vec<u8>'
+            )
+        return self.analysis_rust_type(node_type, namespace)
+
+    def xml_schema_identity(self, avro_type, namespace: str):
+        """Returns a stable identity for discriminator recipe caching."""
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
+        if isinstance(resolved, dict) and resolved.get('name'):
+            return (
+                'named',
+                self.avro_type_fullnames.get(id(resolved))
+                or self.canonical_avro_name(
+                    resolved['name'],
+                    resolved.get('namespace', namespace),
+                )[0],
+            )
+        if isinstance(resolved, (dict, list)):
+            return ('identity', id(resolved))
+        return ('value', resolved)
+
+    def xml_record_match_info(self, avro_type, namespace: str):
+        """Returns declared/required canonical names and accepted field lookup."""
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
+        if not isinstance(resolved, dict) or resolved.get('type') != 'record':
+            return None
+        record_namespace = (
+            self.avro_type_fullnames.get(id(resolved), '')
+            .rpartition('.')[0]
+            or namespace
+        )
+        declared = set()
+        required = set()
+        accepted = {}
+        for field in resolved.get('fields', []):
+            wire_name = xml_wire_name(field['name'], field)
+            if field.get('xmlkind', 'element') == 'attribute':
+                wire_name = f'@{wire_name}'
+            declared.add(wire_name)
+            accepted[wire_name] = field['type']
+            if (
+                (self.serde_annotation or self.avro_annotation)
+                and field['name'] != wire_name
+            ):
+                accepted[field['name']] = field['type']
+            field_type = self.analysis_rust_type(
+                field['type'],
+                record_namespace,
+            )
+            if not (field_type and field_type.startswith('Option<')):
+                required.add(wire_name)
+        return resolved, record_namespace, declared, required, accepted
+
+    def xml_type_accepts_i64_max(self, avro_type, namespace: str) -> bool:
+        """Conservatively checks whether an XML type accepts i64::MAX text."""
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
+        if isinstance(resolved, list):
+            return any(
+                self.xml_type_accepts_i64_max(branch, namespace)
+                for branch in resolved
+                if branch != 'null'
+            )
+        if isinstance(resolved, dict):
+            logical_type = resolved.get('logicalType')
+            if logical_type:
+                return False
+            node_type = resolved.get('type')
+            if node_type == 'enum':
+                return str(2**63 - 1) in self.xml_enum_wire_symbols(
+                    resolved,
+                    namespace,
+                )
+            if isinstance(node_type, (dict, list)):
+                return self.xml_type_accepts_i64_max(
+                    node_type,
+                    namespace,
+                )
+            resolved = node_type
+        return resolved in ('long', 'float', 'double', 'string')
+
+    def _xml_discriminator_recipe(
+        self,
+        avro_type,
+        namespace: str,
+        active=None,
+        competitors=None,
+    ):
+        """Finds one distinguishing path through a named schema DAG."""
+        root_active = set() if active is None else set(active)
+        stack = [{
+            'avro_type': avro_type,
+            'namespace': namespace,
+            'active': root_active,
+            'competitors': [
+                (competitor, namespace)
+                for competitor in competitors or ()
+            ],
+            'initialized': False,
+            'awaiting': False,
+            'blocked': False,
+        }]
+        returned = None
+        has_returned = False
+
+        while stack:
+            frame = stack[-1]
+            if frame['awaiting'] and has_returned:
+                frame['awaiting'] = False
+                has_returned = False
+                child = returned
+                if child is XML_RECIPE_BLOCKED:
+                    frame['blocked'] = True
+                elif child is not None:
+                    builder = frame['current_builder']
+                    recipe = builder + (child,)
+                    cache_key = frame.get('cache_key')
+                    if cache_key is not None:
+                        self._xml_discriminator_recipe_cache[
+                            cache_key
+                        ] = recipe
+                    stack.pop()
+                    returned = recipe
+                    has_returned = True
+                    continue
+
+            if not frame['initialized']:
+                frame['initialized'] = True
+                self.xml_discriminator_stats['node_visits'] += 1
+                node = frame['avro_type']
+                resolved = (
+                    '__runtime_any__'
+                    if isinstance(node, str) and is_any_value_type(node)
+                    else self.normalize_xml_recipe_schema(
+                        node,
+                        frame['namespace'],
+                    )
+                )
+                frame['resolved'] = resolved
+                cache_key = None
+                if isinstance(resolved, dict) and resolved.get('name'):
+                    cache_key = (
+                        self.avro_type_fullnames.get(id(resolved)),
+                        frame['namespace'],
+                        tuple(
+                            self.xml_schema_identity(
+                                competitor,
+                                competitor_namespace,
+                            )
+                            for competitor, competitor_namespace
+                            in frame['competitors']
+                        ),
+                    )
+                    frame['cache_key'] = cache_key
+                    if cache_key in self._xml_discriminator_recipe_cache:
+                        self.xml_discriminator_stats['cache_hits'] += 1
+                        stack.pop()
+                        returned = self._xml_discriminator_recipe_cache[
+                            cache_key
+                        ]
+                        has_returned = True
+                        continue
+                    if cache_key[0] in frame['active']:
+                        stack.pop()
+                        returned = XML_RECIPE_BLOCKED
+                        has_returned = True
+                        continue
+                    frame['active'] = (
+                        frame['active'] | {cache_key[0]}
+                    )
+
+                children = []
+                if isinstance(resolved, dict):
+                    node_type = resolved.get('type')
+                    if node_type == 'record':
+                        candidate_info = self.xml_record_match_info(
+                            resolved,
+                            frame['namespace'],
+                        )
+                        record_namespace = candidate_info[1]
+                        stable_any_fields = tuple(
+                            (
+                                self.safe_identifier(snake(field['name'])),
+                                stable_value,
+                            )
+                            for field in resolved.get('fields', [])
+                            if (
+                                stable_value := self.xml_stable_any_value(
+                                    field['type'],
+                                    record_namespace,
+                                )
+                            ) is not None
+                        )
+                        viable_competitors = []
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
+                            other_info = self.xml_record_match_info(
+                                competitor,
+                                competitor_namespace,
+                            )
+                            if other_info is None:
+                                continue
+                            if other_info[3] - candidate_info[2]:
+                                continue
+                            viable_competitors.append(other_info)
+                        if (
+                            frame['competitors']
+                            and not viable_competitors
+                        ):
+                            stack.pop()
+                            returned = ('default',)
+                            has_returned = True
+                            continue
+                        for field in resolved.get('fields', []):
+                            wire_name = xml_wire_name(
+                                field['name'],
+                                field,
+                            )
+                            if field.get('xmlkind', 'element') == 'attribute':
+                                wire_name = f'@{wire_name}'
+                            child_competitors = []
+                            for other_info in viable_competitors:
+                                other_field = other_info[4].get(wire_name)
+                                if other_field is None:
+                                    child_competitors = None
+                                    break
+                                child_competitors.append((
+                                    other_field,
+                                    other_info[1],
+                                ))
+                            if child_competitors is None:
+                                continue
+                            field_type = self.analysis_rust_type(
+                                field['type'],
+                                record_namespace,
+                            )
+                            if field_type is not None:
+                                children.append((
+                                    (
+                                        'record',
+                                        self.safe_identifier(
+                                            snake(field['name'])
+                                        ),
+                                        field_type,
+                                        field['type'],
+                                        record_namespace,
+                                        stable_any_fields,
+                                    ),
+                                    field['type'],
+                                    record_namespace,
+                                    child_competitors,
+                                ))
+                    elif node_type == 'array':
+                        viable_competitors = []
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
+                            other = self.normalize_xml_recipe_schema(
+                                competitor,
+                                competitor_namespace,
+                            )
+                            if (
+                                isinstance(other, dict)
+                                and other.get('type') == 'array'
+                            ):
+                                viable_competitors.append(
+                                    (
+                                        other.get('items'),
+                                        competitor_namespace,
+                                    )
+                                )
+                        if (
+                            frame['competitors']
+                            and not viable_competitors
+                        ):
+                            stack.pop()
+                            returned = ('default',)
+                            has_returned = True
+                            continue
+                        item_type = self.analysis_rust_type(
+                            resolved.get('items'),
+                            frame['namespace'],
+                        )
+                        if item_type is not None:
+                            children.append((
+                                (
+                                    'array',
+                                    None,
+                                    item_type,
+                                    resolved.get('items'),
+                                    frame['namespace'],
+                                ),
+                                resolved.get('items'),
+                                frame['namespace'],
+                                viable_competitors,
+                            ))
+                    elif node_type == 'map':
+                        viable_competitors = []
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
+                            other = self.normalize_xml_recipe_schema(
+                                competitor,
+                                competitor_namespace,
+                            )
+                            if (
+                                isinstance(other, dict)
+                                and other.get('type') == 'map'
+                            ):
+                                viable_competitors.append(
+                                    (
+                                        other.get('values'),
+                                        competitor_namespace,
+                                    )
+                                )
+                        if (
+                            frame['competitors']
+                            and not viable_competitors
+                        ):
+                            stack.pop()
+                            returned = ('default',)
+                            has_returned = True
+                            continue
+                        value_type = self.analysis_rust_type(
+                            resolved.get('values'),
+                            frame['namespace'],
+                        )
+                        if value_type is not None:
+                            children.append((
+                                (
+                                    'map',
+                                    None,
+                                    value_type,
+                                    resolved.get('values'),
+                                    frame['namespace'],
+                                ),
+                                resolved.get('values'),
+                                frame['namespace'],
+                                viable_competitors,
+                            ))
+                    elif node_type == 'enum':
+                        symbols = self.xml_enum_wire_symbols(
+                            resolved,
+                            frame['namespace'],
+                        )
+                        competing_symbols = set()
+                        accepts_all_text = False
+                        for competitor, competitor_namespace in (
+                            frame['competitors']
+                        ):
+                            other = self.normalize_xml_recipe_schema(
+                                competitor,
+                                competitor_namespace,
+                            )
+                            if other == 'string' or (
+                                isinstance(other, dict)
+                                and other.get('type') == 'string'
+                            ):
+                                accepts_all_text = True
+                            competing_symbols.update(
+                                self.xml_enum_wire_symbols(
+                                    competitor,
+                                    competitor_namespace,
+                                )
+                                or ()
+                            )
+                        if not accepts_all_text:
+                            for symbol in resolved.get('symbols', []):
+                                if xml_enum_wire_value(
+                                    symbol,
+                                    resolved,
+                                ) not in competing_symbols:
+                                    stack.pop()
+                                    returned = ('enum', symbol)
+                                    has_returned = True
+                                    break
+                        if has_returned:
+                            continue
+                    elif node_type == 'long':
+                        if all(
+                            not self.xml_type_accepts_i64_max(
+                                competitor,
+                                competitor_namespace,
+                            )
+                            for competitor, competitor_namespace
+                            in frame['competitors']
+                        ):
+                            stack.pop()
+                            returned = ('value', 'i64::MAX')
+                            has_returned = True
+                            continue
+                elif resolved == 'long':
+                    if all(
+                        not self.xml_type_accepts_i64_max(
+                            competitor,
+                            competitor_namespace,
+                        )
+                        for competitor, competitor_namespace
+                        in frame['competitors']
+                    ):
+                        stack.pop()
+                        returned = ('value', 'i64::MAX')
+                        has_returned = True
+                        continue
+                frame['children'] = children
+                frame['child_index'] = 0
+
+            if frame['child_index'] < len(frame['children']):
+                (
+                    builder,
+                    child_type,
+                    child_namespace,
+                    child_competitors,
+                ) = frame['children'][frame['child_index']]
+                frame['child_index'] += 1
+                frame['current_builder'] = builder
+                frame['awaiting'] = True
+                stack.append({
+                    'avro_type': child_type,
+                    'namespace': child_namespace,
+                    'active': frame['active'],
+                    'competitors': child_competitors,
+                    'initialized': False,
+                    'awaiting': False,
+                    'blocked': False,
+                })
+                continue
+
+            result = (
+                XML_RECIPE_BLOCKED if frame['blocked'] else None
+            )
+            cache_key = frame.get('cache_key')
+            if cache_key is not None and result is not XML_RECIPE_BLOCKED:
+                self._xml_discriminator_recipe_cache[cache_key] = result
+            stack.pop()
+            returned = result
+            has_returned = True
+
+        return returned
+
+    def xml_stable_any_value(self, avro_type, namespace: str):
+        """Builds an XML-round-trippable value for runtime AnyValue fields."""
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
+            return 'serde_json::json!({"value": {}})'
+        if isinstance(avro_type, list):
+            branches = [
+                branch for branch in avro_type
+                if branch != 'null'
+                and not (
+                    isinstance(branch, dict)
+                    and branch.get('type') == 'null'
+                )
+            ]
+            if len(branches) == 1:
+                return self.xml_stable_any_value(branches[0], namespace)
+            return None
+        if not isinstance(avro_type, dict):
+            return None
+        node_type = avro_type.get('type')
+        if node_type == 'array':
+            item = self.xml_stable_any_value(
+                avro_type.get('items'),
+                namespace,
+            )
+            return f'vec![{item}]' if item is not None else None
+        if node_type == 'map':
+            value = self.xml_stable_any_value(
+                avro_type.get('values'),
+                namespace,
+            )
+            if value is not None:
+                return (
+                    'std::collections::HashMap::from(['
+                    f'("key".to_string(), {value})])'
+                )
+        return None
+
+    def resolve_xml_schema_node(self, avro_type, namespace: str):
+        """Resolves named references, including wrapped named type objects."""
+        node = avro_type
+        while True:
+            if isinstance(node, str):
+                return self.resolve_avro_named_type(node, namespace) or node
+            if not isinstance(node, dict):
+                return node
+            node_type = node.get('type')
+            if not isinstance(node_type, str):
+                return node
+            resolved = self.resolve_avro_named_type(node_type, namespace)
+            if resolved is None:
+                return node
+            node = resolved
+
+    def normalize_xml_recipe_schema(self, avro_type, namespace: str):
+        """Unwraps singleton-null schemas for structural recipe traversal."""
+        resolved = self.resolve_xml_schema_node(avro_type, namespace)
+        if isinstance(resolved, list):
+            branches = [branch for branch in resolved if branch != 'null']
+            if len(branches) == 1:
+                return self.resolve_xml_schema_node(
+                    branches[0],
+                    namespace,
+                )
+        return resolved
+
+    def xml_enum_wire_symbols(self, avro_type, namespace: str):
+        """Returns accepted enum wire symbols, or None for non-enums."""
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
+        if not isinstance(resolved, dict) or resolved.get('type') != 'enum':
+            return None
+        symbols = {
+            xml_enum_wire_value(symbol, resolved)
+            for symbol in resolved.get('symbols', [])
+        }
+        if self.serde_annotation or self.avro_annotation:
+            symbols.update(resolved.get('symbols', []))
+        return symbols
+
+    def xml_enum_candidate_overlaps(
+        self,
+        avro_type,
+        competitors,
+        namespace: str,
+    ) -> bool:
+        """Checks XML wire overlap for an enum candidate."""
+        symbols = self.xml_enum_wire_symbols(avro_type, namespace)
+        if symbols is None:
+            return False
+        for competitor in competitors:
+            other_symbols = self.xml_enum_wire_symbols(
+                competitor,
+                namespace,
+            )
+            if other_symbols is not None and symbols & other_symbols:
+                return True
+            resolved = self.resolve_xml_schema_node(competitor, namespace)
+            if resolved == 'string' or (
+                isinstance(resolved, dict)
+                and resolved.get('type') == 'string'
+            ):
+                return True
+        return False
+
+    def _render_xml_discriminator_recipe(
+        self,
+        recipe,
+        rust_type: str,
+        avro_type,
+        namespace: str,
+    ) -> str:
+        wrappers = []
+        current_recipe = recipe
+        current_rust_type = rust_type
+        while current_recipe[0] not in ('value', 'enum', 'default'):
+            kind = current_recipe[0]
+            wrappers.append((kind, current_recipe, current_rust_type))
+            current_rust_type = current_recipe[2]
+            current_recipe = current_recipe[-1]
+
+        if current_recipe[0] == 'value':
+            value = current_recipe[1]
+        elif current_recipe[0] == 'enum':
+            value = (
+                f'{current_rust_type}::'
+                f'{self.safe_identifier(current_recipe[1])}'
+            )
+        else:
+            value = 'Default::default()'
+        if self._rust_inner_type(current_rust_type, 'Option<') is not None:
+            value = f'Some({value})'
+        for kind, wrapper, wrapper_rust_type in reversed(wrappers):
+            if kind == 'record':
+                field_name = wrapper[1]
+                initializers = ''.join(
+                    f' value.{name} = {initial_value};'
+                    for name, initial_value in wrapper[5]
+                )
+                value = (
+                    f'{{ let mut value: {wrapper_rust_type} = '
+                    f'Default::default();{initializers} '
+                    f'value.{field_name} = {value}; '
+                    'value }'
+                )
+            elif kind == 'array':
+                value = f'vec![{value}]'
+            else:
+                value = (
+                    'std::collections::HashMap::from(['
+                    f'("key".to_string(), {value})])'
+                )
+        return value
+
+    def generate_xml_distinguishing_value(
+        self,
+        rust_type: str,
+        avro_type,
+        namespace: str,
+        competitors=None,
+    ) -> str:
+        """Generates one bounded deterministic XML-distinguishing value."""
+        optional_type = self._rust_inner_type(rust_type, 'Option<')
+        if optional_type is not None:
+            return 'None'
+        if rust_type == 'i64':
+            return 'i64::MAX'
+        if rust_type == 'u64':
+            return 'u64::MAX'
+        if rust_type == 'String':
+            return '"xml-distinct".to_string()'
+        if rust_type == 'serde_json::Value':
+            return 'serde_json::json!({"value": {}})'
+
+        resolved = self.normalize_xml_recipe_schema(avro_type, namespace)
+        if isinstance(resolved, dict) and resolved.get('type') == 'enum':
+            competing_symbols = set()
+            accepts_all_text = False
+            for competitor in competitors or ():
+                other = self.normalize_xml_recipe_schema(
+                    competitor,
+                    namespace,
+                )
+                if isinstance(other, dict) and other.get('type') == 'enum':
+                    competing_symbols.update(
+                        self.xml_enum_wire_symbols(
+                            competitor,
+                            namespace,
+                        )
+                    )
+                elif other == 'string' or (
+                    isinstance(other, dict)
+                    and other.get('type') == 'string'
+                ):
+                    accepts_all_text = True
+            if not accepts_all_text:
+                for symbol in resolved.get('symbols', []):
+                    if xml_enum_wire_value(symbol, resolved) not in (
+                        competing_symbols
+                    ):
+                        value = (
+                            f'{rust_type}::{self.safe_identifier(symbol)}'
+                        )
+                        self.xml_discriminator_stats[
+                            'max_output_size'
+                        ] = max(
+                            self.xml_discriminator_stats['max_output_size'],
+                            len(value),
+                        )
+                        return value
+            return f'{rust_type}::default()'
+
+        recipe = self._xml_discriminator_recipe(
+            avro_type,
+            namespace,
+            competitors=competitors,
+        )
+        if recipe is XML_RECIPE_BLOCKED:
+            recipe = None
+        if recipe is not None:
+            value = self._render_xml_discriminator_recipe(
+                recipe,
+                rust_type,
+                avro_type,
+                namespace,
+            )
+        elif isinstance(resolved, dict) and resolved.get('type') in (
+            'record',
+            'array',
+            'map',
+        ):
+            value = 'Default::default()'
+        else:
+            value = self.generate_random_value_for_avro(
+                rust_type,
+                avro_type,
+                namespace,
+            )
+        self.xml_discriminator_stats['max_output_size'] = max(
+            self.xml_discriminator_stats['max_output_size'],
+            len(value),
+        )
+        return value
+
+    def xml_record_field_sets(self, avro_type, namespace: str):
+        """Returns canonical declared and required XML fields for a record."""
+        resolved = (
+            self.resolve_avro_named_type(avro_type, namespace)
+            if isinstance(avro_type, str)
+            else avro_type
+        )
+        if not isinstance(resolved, dict) or resolved.get('type') != 'record':
+            return None
+        declared = set()
+        required = set()
+        for field in resolved.get('fields', []):
+            wire_name = xml_wire_name(field['name'], field)
+            if field.get('xmlkind', 'element') == 'attribute':
+                wire_name = f'@{wire_name}'
+            declared.add(wire_name)
+            field_type = field['type']
+            if not (
+                isinstance(field_type, list)
+                and 'null' in field_type
+            ):
+                required.add(wire_name)
+        return declared, required
+
+    def xml_exact_predicate_key(
+        self,
+        avro_type,
+        namespace: str,
+        canonical: bool = False,
+    ):
+        """Returns a bounded graph key for an exact XML predicate."""
+        cache_key = (
+            canonical,
+            namespace,
+            (
+                ('name', avro_type)
+                if isinstance(avro_type, str)
+                else ('identity', id(avro_type))
+            ),
+        )
+        cached = self._xml_predicate_signature_cache.get(cache_key)
+        if cached is not None:
+            self.xml_predicate_signature_stats['cache_hits'] += 1
+            return cached
+
+        nodes = []
+        atoms = {}
+        named_nodes = {}
+        anonymous_nodes = {}
+        pending = []
+
+        def atom(kind):
+            if kind not in atoms:
+                atoms[kind] = len(nodes)
+                nodes.append((kind, None))
+            return atoms[kind]
+
+        def ensure(node, current_namespace):
+            while True:
+                if isinstance(node, str):
+                    if is_any_value_type(node):
+                        return atom('runtime:any')
+                    resolved = self.resolve_avro_named_type(
+                        node,
+                        current_namespace,
+                    )
+                    if resolved is None:
+                        return atom(f'primitive:{node}')
+                    node = resolved
+                if isinstance(node, list):
+                    key = ('union', id(node), current_namespace)
+                    if key in anonymous_nodes:
+                        return anonymous_nodes[key]
+                    node_id = len(nodes)
+                    anonymous_nodes[key] = node_id
+                    nodes.append(None)
+                    pending.append((
+                        'union',
+                        node_id,
+                        node,
+                        current_namespace,
+                    ))
+                    return node_id
+                if not isinstance(node, dict):
+                    return atom(f'literal:{node!r}')
+
+                node_type = node.get('type')
+                logical_type = node.get('logicalType')
+                if logical_type:
+                    return atom(f'logical:{logical_type}:{node_type}')
+                if node_type == 'record':
+                    fullname, record_namespace, _ = self.canonical_avro_name(
+                        node['name'],
+                        node.get('namespace', current_namespace),
+                    )
+                    if fullname in named_nodes:
+                        return named_nodes[fullname]
+                    node_id = len(nodes)
+                    named_nodes[fullname] = node_id
+                    nodes.append(None)
+                    pending.append((
+                        'record',
+                        node_id,
+                        node,
+                        record_namespace,
+                    ))
+                    return node_id
+                if node_type == 'enum':
+                    symbols = tuple(
+                        xml_enum_wire_value(symbol, node)
+                        for symbol in node.get('symbols', [])
+                    )
+                    if (
+                        not canonical
+                        and (self.serde_annotation or self.avro_annotation)
+                    ):
+                        symbols = tuple(sorted(set(
+                            symbols + tuple(node.get('symbols', []))
+                        )))
+                    return atom('enum:' + '\x1f'.join(symbols))
+                if node_type in ('array', 'map'):
+                    key = (node_type, id(node), current_namespace)
+                    if key in anonymous_nodes:
+                        return anonymous_nodes[key]
+                    node_id = len(nodes)
+                    anonymous_nodes[key] = node_id
+                    nodes.append(None)
+                    payload = (
+                        node.get('items')
+                        if node_type == 'array'
+                        else node.get('values')
+                    )
+                    pending.append((
+                        node_type,
+                        node_id,
+                        payload,
+                        current_namespace,
+                    ))
+                    return node_id
+                if isinstance(node_type, (dict, list)):
+                    node = node_type
+                    continue
+                return atom(f'primitive:{node_type}')
+
+        root = ensure(avro_type, namespace)
+        pending_index = 0
+        while pending_index < len(pending):
+            kind, node_id, payload, current_namespace = pending[pending_index]
+            pending_index += 1
+            if kind == 'record':
+                fields = []
+                for field in payload.get('fields', []):
+                    wire_name = xml_wire_name(field['name'], field)
+                    if field.get('xmlkind', 'element') == 'attribute':
+                        wire_name = f'@{wire_name}'
+                    names = (wire_name,)
+                    if (
+                        not canonical
+                        and (self.serde_annotation or self.avro_annotation)
+                        and field['name'] != wire_name
+                    ):
+                        names = tuple(sorted((wire_name, field['name'])))
+                    nullable = (
+                        isinstance(field['type'], list)
+                        and 'null' in field['type']
+                    )
+                    fields.append((
+                        (names, nullable),
+                        ensure(field['type'], current_namespace),
+                    ))
+                nodes[node_id] = ('record_match', tuple(fields))
+            elif kind == 'union':
+                nodes[node_id] = (
+                    'union',
+                    tuple(
+                        ensure(branch, current_namespace)
+                        for branch in payload
+                    ),
+                )
+            else:
+                nodes[node_id] = (
+                    kind,
+                    ensure(payload, current_namespace),
+                )
+
+        signature = JsonSignature(root, nodes)
+        self._xml_predicate_signature_cache[cache_key] = signature
+        self.xml_predicate_signature_stats['build_count'] += 1
+        self.xml_predicate_signature_stats[
+            'node_count'
+        ] += signature.node_count
+        return signature
+
     def generate_struct(
         self,
         avro_schema: Dict,
@@ -611,6 +1904,10 @@ class AvroToRust:
                 self.generated_union_fields.get(base_field_type, [])
                 if self.avro_annotation else []
             )
+            is_generated_union_wrapper = (
+                self.generated_types_rust_package.get(base_field_type)
+                == 'union'
+            )
             source_null_index = (
                 field['type'].index('null')
                 if isinstance(field['type'], list)
@@ -647,6 +1944,20 @@ class AvroToRust:
                 'serde_alias': original_field_name if self.xml_annotation and (self.serde_annotation or self.avro_annotation) and original_field_name != serde_name else '',
                 'xml_name': xml_name,
                 'xml_kind': xml_kind,
+                'xml_repeatable': (
+                    not is_generated_union_wrapper
+                    and self.xml_type_contains_collection(
+                        field['type'],
+                        'array',
+                    )
+                ),
+                'xml_map': (
+                    not is_generated_union_wrapper
+                    and self.xml_type_contains_collection(
+                        field['type'],
+                        'map',
+                    )
+                ),
                 'name': field_name,
                 'type': field_type,
                 'serde_rename': serde_rename,
@@ -664,7 +1975,7 @@ class AvroToRust:
                 'avro_decode': avro_decode,
                 'avro_encode': avro_encode,
             })
-        
+
         ns = parent_namespace.replace('.', '::').lower()
         qualified_struct_name = self.safe_package(self.concat_package(ns, struct_name))
         avro_test_instances = []
@@ -731,7 +2042,56 @@ class AvroToRust:
                 avro_schema,
                 parent_namespace,
             ),
-            'json_match_predicates': [self.get_is_json_match_clause(f['original_name'], f['type']) for f in fields]
+            'json_match_predicates': [
+                self.get_is_json_match_clause(
+                    (
+                        field['serde_name'],
+                        field['serde_alias'],
+                    ),
+                    field['type'],
+                )
+                for field in sorted(fields, key=self.match_validation_cost)
+            ],
+            'json_value_match_predicates': [
+                self.get_is_json_match_clause(
+                    (
+                        field['serde_name'],
+                        field['serde_alias'],
+                    ),
+                    field['type'],
+                    exact_nested=True,
+                )
+                for field in sorted(fields, key=self.match_validation_cost)
+            ],
+            'xml_canonical_match_predicates': [
+                self.get_is_xml_canonical_match_clause(field)
+                for field in sorted(fields, key=self.match_validation_cost)
+            ],
+            'xml_shape_predicates': [
+                self.get_is_xml_shape_clause(field)
+                for field in sorted(fields, key=self.match_validation_cost)
+            ],
+            'xml_match_predicates': [
+                self.get_is_xml_match_clause(
+                    (
+                        field['serde_name'],
+                        field['serde_alias'],
+                    ),
+                    field['type'],
+                )
+                for field in sorted(fields, key=self.match_validation_cost)
+            ],
+            'legacy_xml_shape_predicates': [
+                self.get_legacy_is_xml_shape_clause(field)
+                for field in fields
+            ],
+            'legacy_xml_match_predicates': [
+                self.get_legacy_is_xml_match_clause(
+                    field['serde_name'],
+                    field['type'],
+                )
+                for field in fields
+            ],
         }
 
         file_name = self.to_file_name(qualified_struct_name)
@@ -1153,56 +2513,420 @@ class AvroToRust:
 
         return f'apache_avro::from_value({value_expression})?'
     
-    def get_is_json_match_clause(self, field_name: str, field_type: str, for_union=False) -> str:
-        """Generates the is_json_match clause for a field"""
-        ref = f'node[\"{field_name}\"]' if not for_union else 'node'
-        
-        # Check if type is optional - if so, we need to allow null values
-        is_optional = field_type.startswith('Option<')
-        base_type = field_type[7:-1] if is_optional else field_type
-        null_check = f" || {ref}.is_null()" if is_optional else ""
-        
-        # serde_json::Value can be any JSON type, so always return true
-        if base_type == 'serde_json::Value':
-            return "true"
-        
-        if base_type == 'String':
-            return f"({ref}.is_string(){null_check})"
-        elif base_type == 'bool':
-            return f"({ref}.is_boolean(){null_check})"
-        elif base_type == 'i32':
-            return f"({ref}.is_i64(){null_check})"
-        elif base_type == 'i64':
-            return f"({ref}.is_i64(){null_check})"
-        elif base_type == 'f32':
-            return f"({ref}.is_f64(){null_check})"
-        elif base_type == 'f64':
-            return f"({ref}.is_f64(){null_check})"
-        elif base_type == 'Vec<u8>':
-            return f"({ref}.is_array(){null_check})"
-        elif base_type == '()':
-            return f"({ref}.is_null(){null_check})"
-        elif base_type == 'std::collections::HashMap<String, String>':
-            return f"({ref}.is_object(){null_check})"
-        elif base_type.startswith('std::collections::HashMap<String, '):
-            return f"({ref}.is_object(){null_check})"
-        elif base_type.startswith('Vec<'):
-            return f"({ref}.is_array(){null_check})"
-        # chrono types - check for string (ISO 8601 format) or number (timestamp)
-        elif 'chrono::NaiveDateTime' in base_type or 'NaiveDateTime' in base_type:
-            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
-        elif 'chrono::NaiveDate' in base_type or 'NaiveDate' in base_type:
-            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
-        elif 'chrono::NaiveTime' in base_type or 'NaiveTime' in base_type:
-            return f"({ref}.is_string() || {ref}.is_i64(){null_check})"
-        # uuid type - check for string
-        elif 'uuid::Uuid' in base_type or 'Uuid' in base_type:
-            return f"({ref}.is_string(){null_check})"
+    @staticmethod
+    def _rust_inner_type(rust_type: str, prefix: str) -> str | None:
+        """Returns the inner type when `rust_type` has the requested wrapper."""
+        if rust_type.startswith(prefix) and rust_type.endswith('>'):
+            return rust_type[len(prefix):-1]
+        return None
+
+    def get_value_match_expression(
+        self,
+        reference: str,
+        field_type: str,
+        xml: bool = False,
+        canonical_xml: bool = False,
+        exact_nested: bool = False,
+    ) -> str:
+        """Builds an allocation-free exact predicate for a generated Rust type."""
+        optional_type = self._rust_inner_type(field_type, 'Option<')
+        if optional_type is not None:
+            inner = self.get_value_match_expression(
+                reference,
+                optional_type,
+                xml,
+                canonical_xml,
+                exact_nested,
+            )
+            null_test = (
+                f'{reference}.is_xml_null()'
+                if xml else f'{reference}.is_null()'
+            )
+            return f'({null_test} || {inner})'
+
+        if field_type == 'serde_json::Value':
+            return 'true'
+
+        if xml:
+            if field_type == 'String':
+                return f'{reference}.is_xml_text()'
+            if field_type == 'bool':
+                return f'{reference}.matches_xml_bool()'
+            if field_type in {
+                'i8', 'i16', 'i32', 'i64', 'i128', 'isize',
+                'u8', 'u16', 'u32', 'u64', 'u128', 'usize',
+                'f32', 'f64',
+            }:
+                return (
+                    f'{reference}.matches_xml_number::<{field_type}>()'
+                )
+            if field_type == '()':
+                return f'{reference}.is_xml_unit()'
+            if (
+                'chrono::' in field_type
+                or 'uuid::Uuid' in field_type
+                or field_type == 'Uuid'
+            ):
+                return (
+                    f'{reference}.matches_xml_from_str::<{field_type}>()'
+                )
+            vector_type = self._rust_inner_type(field_type, 'Vec<')
+            if vector_type is not None:
+                item_match = self.get_value_match_expression(
+                    'item',
+                    vector_type,
+                    True,
+                    canonical_xml,
+                    exact_nested,
+                )
+                return (
+                    f'{reference}.xml_sequence_matches('
+                    f'|item| {item_match})'
+                )
+            map_type = self._rust_inner_type(
+                field_type,
+                'std::collections::HashMap<String, ',
+            )
+            if map_type is not None:
+                value_match = self.get_value_match_expression(
+                    'value',
+                    map_type,
+                    True,
+                    canonical_xml,
+                    exact_nested,
+                )
+                return (
+                    f'{reference}.xml_map_matches('
+                    f'|value| {value_match})'
+                )
+            method = (
+                'is_xml_value_canonical_match'
+                if canonical_xml
+                else 'is_xml_value_match'
+            )
+            return f'{field_type}::{method}({reference})'
+
+        if field_type == 'String':
+            return f'{reference}.is_string()'
+        if field_type == 'bool':
+            return f'{reference}.is_boolean()'
+        if field_type in {'i8', 'i16', 'i32', 'isize'}:
+            return (
+                f'{reference}.as_i64().map_or(false, '
+                f'|value| {field_type}::try_from(value).is_ok())'
+            )
+        if field_type == 'i64':
+            return f'{reference}.as_i64().is_some()'
+        if field_type in {'u8', 'u16', 'u32', 'usize'}:
+            return (
+                f'{reference}.as_u64().map_or(false, '
+                f'|value| {field_type}::try_from(value).is_ok())'
+            )
+        if field_type == 'u64':
+            return f'{reference}.as_u64().is_some()'
+        if field_type == 'f32':
+            return f'{reference}.as_f64().is_some()'
+        if field_type == 'f64':
+            return f'{reference}.as_f64().is_some()'
+        if field_type == '()':
+            return f'{reference}.is_null()'
+        if (
+            'chrono::' in field_type
+            or 'uuid::Uuid' in field_type
+            or field_type == 'Uuid'
+        ):
+            return (
+                f'{reference}.as_str().map_or(false, '
+                f'|value| value.parse::<{field_type}>().is_ok())'
+            )
+        vector_type = self._rust_inner_type(field_type, 'Vec<')
+        if vector_type is not None:
+            item_match = self.get_value_match_expression(
+                'item',
+                vector_type,
+                exact_nested=exact_nested,
+            )
+            return (
+                f'{reference}.as_array().map_or(false, '
+                f'|items| items.iter().all(|item| {item_match}))'
+            )
+        map_type = self._rust_inner_type(
+            field_type,
+            'std::collections::HashMap<String, ',
+        )
+        if map_type is not None:
+            value_match = self.get_value_match_expression(
+                'value',
+                map_type,
+                exact_nested=exact_nested,
+            )
+            return (
+                f'{reference}.as_object().map_or(false, '
+                f'|values| values.values().all(|value| {value_match}))'
+            )
+        generated_kind = (
+            self.generated_types_rust_package.get(field_type)
+            or self.indexed_rust_type_kinds.get(field_type)
+        )
+        method = (
+            'is_json_value_match'
+            if exact_nested and generated_kind in {'union', 'struct', 'enum'}
+            else 'is_json_match'
+        )
+        return f'{field_type}::{method}({reference})'
+
+    def get_is_json_match_clause(
+        self,
+        field_name: str | tuple[str, ...],
+        field_type: str,
+        for_union=False,
+        exact_nested=False,
+    ) -> str:
+        """Generates an exact borrowed JSON match clause for a field."""
+        if for_union:
+            return self.get_value_match_expression(
+                'node',
+                field_type,
+                exact_nested=exact_nested,
+            )
+
+        field_names = (
+            field_name if isinstance(field_name, tuple) else (field_name,)
+        )
+        lookups = [
+            f'node.get("{name}")'
+            for name in dict.fromkeys(field_names)
+            if name
+        ]
+        value_match = self.get_value_match_expression(
+            'value',
+            field_type,
+            exact_nested=exact_nested,
+        )
+        missing_matches = field_type.startswith('Option<')
+        lookup = '.or_else(|| '.join(lookups) + ')' * (len(lookups) - 1)
+        duplicate_guard = ' + '.join(
+            f'usize::from(node.get("{name}").is_some())'
+            for name in dict.fromkeys(field_names)
+            if name
+        )
+        return (
+            f'(({duplicate_guard}) <= 1 && {lookup}.map_or('
+            f'{str(missing_matches).lower()}, |value| {value_match}))'
+        )
+
+    def get_is_xml_canonical_match_clause(self, field) -> str:
+        """Matches only canonical XML wire names and enum spellings."""
+        canonical_name = field['serde_name']
+        alias_name = field['serde_alias']
+        value_match = self.get_value_match_expression(
+            'value',
+            field['type'],
+            True,
+            True,
+        )
+        missing_matches = field['type'].startswith('Option<')
+        alias_guard = (
+            f'!node.contains_key("{alias_name}") && '
+            if alias_name and alias_name != canonical_name else ''
+        )
+        return (
+            f'({alias_guard}node.get("{canonical_name}").map_or('
+            f'{str(missing_matches).lower()}, |value| {value_match}))'
+        )
+
+    def match_validation_cost(self, field) -> tuple[int, int]:
+        """Orders cheap required discriminators before deep candidate fields."""
+        rust_type = field['type']
+        optional = rust_type.startswith('Option<')
+        base_type = rust_type[7:-1] if optional else rust_type
+        if (
+            base_type.startswith('Vec<')
+            or base_type.startswith('std::collections::HashMap<')
+        ):
+            cost = 3
+        elif self.generated_types_rust_package.get(base_type) in {
+            'struct',
+            'union',
+        }:
+            cost = 2
+        elif 'chrono::' in base_type or 'uuid::' in base_type:
+            cost = 1
         else:
-            # Custom types - call their is_json_match method
-            if is_optional:
-                return f"({base_type}::is_json_match(&{ref}) || {ref}.is_null())"
-            return f"{base_type}::is_json_match(&{ref})"
+            cost = 0
+        return (int(optional), cost)
+
+    def get_is_xml_match_clause(
+        self,
+        field_name: str | tuple[str, ...],
+        field_type: str,
+        for_union=False,
+    ) -> str:
+        """Generates an exact borrowed XML match clause for a field."""
+        if for_union:
+            return self.get_value_match_expression('node', field_type, True)
+
+        field_names = (
+            field_name if isinstance(field_name, tuple) else (field_name,)
+        )
+        lookups = [
+            f'node.get("{name}")'
+            for name in dict.fromkeys(field_names)
+            if name
+        ]
+        value_match = self.get_value_match_expression(
+            'value',
+            field_type,
+            True,
+        )
+        missing_matches = field_type.startswith('Option<')
+        lookup = '.or_else(|| '.join(lookups) + ')' * (len(lookups) - 1)
+        duplicate_guard = ' + '.join(
+            f'usize::from(node.contains_key("{name}"))'
+            for name in dict.fromkeys(field_names)
+            if name
+        )
+        return (
+            f'(({duplicate_guard}) <= 1 && {lookup}.map_or('
+            f'{str(missing_matches).lower()}, |value| {value_match}))'
+        )
+
+    def get_legacy_is_xml_match_clause(
+        self,
+        field_name: str,
+        field_type: str,
+        for_union=False,
+    ) -> str:
+        """Preserves the public normalized-JSON XML predicate API."""
+        reference = 'node' if for_union else f'node["{field_name}"]'
+        optional_type = self._rust_inner_type(field_type, 'Option<')
+        base_type = optional_type or field_type
+        null_check = f' || {reference}.is_null()' if optional_type else ''
+        if base_type == 'serde_json::Value':
+            return 'true'
+        if base_type == 'String':
+            return f'({reference}.is_string(){null_check})'
+        if base_type == 'bool':
+            return f'({reference}.is_boolean(){null_check})'
+        if base_type in {
+            'i8', 'i16', 'i32', 'i64', 'isize',
+            'u8', 'u16', 'u32', 'u64', 'usize',
+        }:
+            return f'({reference}.is_i64(){null_check})'
+        if base_type in {'f32', 'f64'}:
+            return f'({reference}.is_f64(){null_check})'
+        if base_type == 'Vec<u8>' or base_type.startswith('Vec<'):
+            return f'({reference}.is_array(){null_check})'
+        if base_type == '()':
+            return f'({reference}.is_null(){null_check})'
+        if base_type.startswith('std::collections::HashMap<String, '):
+            return f'({reference}.is_object(){null_check})'
+        if 'chrono::' in base_type:
+            return (
+                f'({reference}.is_string() || '
+                f'{reference}.is_i64(){null_check})'
+            )
+        if 'uuid::Uuid' in base_type or base_type == 'Uuid':
+            return f'({reference}.is_string(){null_check})'
+        if optional_type:
+            return (
+                f'({base_type}::is_xml_match(&{reference})'
+                f' || {reference}.is_null())'
+            )
+        return f'{base_type}::is_xml_match(&{reference})'
+
+    @staticmethod
+    def get_legacy_is_xml_shape_clause(field) -> str:
+        """Preserves public normalized-JSON XML shape predicates."""
+        reference = f'node.get("{field["serde_name"]}")'
+        base_type = (
+            field['type'][7:-1]
+            if field['type'].startswith('Option<')
+            else field['type']
+        )
+        primitive = (
+            base_type in {
+                'String', 'bool', 'i8', 'i16', 'i32', 'i64',
+                'u8', 'u16', 'u32', 'u64', 'isize', 'usize',
+                'f32', 'f64', 'Vec<u8>', '()', 'serde_json::Value',
+            }
+            or base_type.startswith('Vec<')
+            or base_type.startswith('std::collections::HashMap<')
+            or 'chrono::' in base_type
+            or 'uuid::Uuid' in base_type
+        )
+        if field['is_optional']:
+            if primitive:
+                return 'true'
+            return (
+                f'{reference}.map_or(true, |value| '
+                f'{base_type}::is_xml_shape(value))'
+            )
+        if primitive:
+            return f'{reference}.is_some()'
+        return (
+            f'{reference}.map_or(false, |value| '
+            f'{base_type}::is_xml_shape(value))'
+        )
+
+    @staticmethod
+    def get_is_xml_shape_clause(field) -> str:
+        """Checks XML wire keys without reclassifying concrete values."""
+        field_names = (field['serde_name'],)
+        lookup = '.or_else(|| '.join(
+            f'node.get("{name}")' for name in field_names
+        ) + ')' * (len(field_names) - 1)
+        duplicate_guard = ' + '.join(
+            f'usize::from(node.contains_key("{name}"))'
+            for name in field_names
+        )
+        base_type = (
+            field['type'][7:-1]
+            if field['type'].startswith('Option<')
+            else field['type']
+        )
+        primitive = (
+            base_type in {
+                'String',
+                'bool',
+                'i8',
+                'i16',
+                'i32',
+                'i64',
+                'u8',
+                'u16',
+                'u32',
+                'u64',
+                'isize',
+                'usize',
+                'f32',
+                'f64',
+                'Vec<u8>',
+                '()',
+                'serde_json::Value',
+            }
+            or base_type.startswith('Vec<')
+            or base_type.startswith('std::collections::HashMap<')
+            or 'chrono::' in base_type
+            or 'uuid::Uuid' in base_type
+        )
+        if field['is_optional']:
+            if primitive:
+                return f'({duplicate_guard}) <= 1'
+            return (
+                f'(({duplicate_guard}) <= 1 && '
+                f'{lookup}.map_or(true, |value| '
+                f'{base_type}::is_xml_value_shape(value))'
+                f')'
+            )
+        if primitive:
+            return f'(({duplicate_guard}) == 1)'
+        return (
+            f'(({duplicate_guard}) == 1 && '
+            f'{lookup}.map_or(false, |value| '
+            f'{base_type}::is_xml_value_shape(value))'
+            f')'
+        )
 
 
     def generate_enum(self, avro_schema: Dict, parent_namespace: str) -> str:
@@ -1352,11 +3076,37 @@ class AvroToRust:
                 t,
                 for_union=True,
             )
+            value_predicate = self.get_is_json_match_clause(
+                field_name,
+                t,
+                for_union=True,
+                exact_nested=True,
+            )
+            xml_predicate = self.get_is_xml_match_clause(
+                field_name,
+                t,
+                for_union=True,
+            )
+            canonical_xml_predicate = self.get_value_match_expression(
+                'node',
+                t,
+                True,
+                True,
+            )
+            legacy_xml_predicate = self.get_legacy_is_xml_match_clause(
+                field_name,
+                t,
+                for_union=True,
+            )
             predicate_key = self.get_json_match_signature(
                 union_avro_types[i],
                 namespace,
             )
             shape_signature = self.get_json_shape_signature(
+                union_avro_types[i],
+                namespace,
+            )
+            default_shape_signature = self.get_json_default_shape_signature(
                 union_avro_types[i],
                 namespace,
             )
@@ -1372,6 +3122,11 @@ class AvroToRust:
             else:
                 seen_names[variant_name] = 1
             
+            xml_representation = self.xml_union_representation(
+                union_avro_types[i],
+                t,
+                namespace,
+            )
             union_fields.append({
                 'name': variant_name, 
                 'type': t, 
@@ -1399,8 +3154,55 @@ class AvroToRust:
                 ),
                 'default_value': 'Default::default()',
                 'json_match_predicate': predicate,
+                'json_value_match_predicate': value_predicate,
+                'xml_match_predicate': xml_predicate,
+                'legacy_xml_match_predicate': legacy_xml_predicate,
+                'xml_borrowed_match_predicate': (
+                    f'content.get("item").map_or('
+                    f'content.is_empty_xml_map(), |node| '
+                    f'{xml_predicate})'
+                    if xml_representation == 'sequence'
+                    else (
+                        f'content.get("entries").map_or(false, |node| '
+                        f'{xml_predicate})'
+                        if xml_representation == 'map'
+                        else xml_predicate
+                    )
+                ),
+                'xml_canonical_match_predicate': (
+                    (
+                        f'content.get("item").map_or('
+                        f'content.is_empty_xml_map(), |node| '
+                        f'{canonical_xml_predicate})'
+                        if xml_representation == 'sequence'
+                        else (
+                            f'content.get("entries").map_or(false, |node| '
+                            f'{canonical_xml_predicate})'
+                            if xml_representation == 'map'
+                            else canonical_xml_predicate
+                        )
+                    )
+                ),
+                'xml_representation': xml_representation,
+                'xml_exact_predicate_key': self.xml_exact_predicate_key(
+                    union_avro_types[i],
+                    namespace,
+                ),
+                'xml_canonical_predicate_key': (
+                    self.xml_exact_predicate_key(
+                        union_avro_types[i],
+                        namespace,
+                        canonical=True,
+                    )
+                ),
+                'xml_sequence_item_type': (
+                    self._rust_inner_type(t, 'Vec<')
+                    if xml_representation == 'sequence'
+                    else ''
+                ),
                 'json_match_signature': predicate_key,
                 'json_shape_signature': shape_signature,
+                'json_default_shape_signature': default_shape_signature,
                 'is_first_with_predicate': is_first_with_predicate,
             })
         scalar_kinds = {
@@ -1411,6 +3213,25 @@ class AvroToRust:
             'isize': 'integer', 'usize': 'integer',
             'f32': 'float', 'f64': 'float',
         }
+        record_field_sets = [
+            self.xml_record_field_sets(
+                field['avro_type'],
+                namespace,
+            )
+            for field in union_fields
+        ]
+        for index, field in enumerate(union_fields):
+            selected_fields = record_field_sets[index]
+            field['xml_statically_disjoint'] = bool(
+                selected_fields
+                and all(
+                    other_fields
+                    and bool(other_fields[1] - selected_fields[0])
+                    for other_index, other_fields
+                    in enumerate(record_field_sets)
+                    if other_index != index
+                )
+            )
         present_scalar_kinds = {scalar_kinds[field['type']] for field in union_fields if field['type'] in scalar_kinds}
         for field in union_fields:
             json_ambiguous = sum(
@@ -1426,9 +3247,49 @@ class AvroToRust:
             field['xml_reject_value'] = (
                 (scalar_kind is not None and scalar_kind != 'string' and 'string' in present_scalar_kinds)
                 or (scalar_kind == 'integer' and 'float' in present_scalar_kinds)
-                or json_ambiguous
             )
-            field['xml_safe_for_random'] = not field['xml_reject_value']
+            field['xml_check_value_ambiguity'] = json_ambiguous
+            field['xml_enum_overlap'] = self.xml_enum_candidate_overlaps(
+                field['avro_type'],
+                [
+                    candidate['avro_type']
+                    for candidate in union_fields
+                    if candidate is not field
+                ],
+                namespace,
+            )
+            field['xml_requires_runtime_probe'] = (
+                not field['xml_statically_disjoint']
+            )
+            default_is_ambiguous = sum(
+                1 for candidate in union_fields
+                if self.json_match_accepts_shape(
+                    candidate['json_match_signature'],
+                    field['json_default_shape_signature'],
+                )
+            ) > 1
+            field['json_default_is_ambiguous'] = default_is_ambiguous
+            field['xml_safe_for_random'] = not (
+                field['xml_reject_value']
+                or default_is_ambiguous
+            )
+            field['xml_random_value'] = (
+                self.generate_xml_distinguishing_value(
+                    field['type'],
+                    field['avro_type'],
+                    namespace,
+                    [
+                        candidate['avro_type']
+                        for candidate in union_fields
+                        if candidate is not field
+                    ],
+                )
+                if (
+                    field['xml_check_value_ambiguity']
+                    or field['xml_enum_overlap']
+                )
+                else field['random_value']
+            )
             field['json_ambiguous'] = json_ambiguous
             field['json_round_trip_safe'] = (
                 not field['json_ambiguous']
@@ -1437,6 +3298,30 @@ class AvroToRust:
                     namespace,
                 )
             )
+        xml_match_groups = {}
+        xml_canonical_groups = {}
+        for index, field in enumerate(union_fields):
+            group_key = field['xml_exact_predicate_key']
+            group = xml_match_groups.setdefault(group_key, {
+                'indexes': [],
+                'match_predicate': field[
+                    'xml_borrowed_match_predicate'
+                ],
+                'canonical_predicate': field[
+                    'xml_canonical_match_predicate'
+                ],
+            })
+            group['indexes'].append(index)
+            canonical_group = xml_canonical_groups.setdefault(
+                field['xml_canonical_predicate_key'],
+                {
+                    'indexes': [],
+                    'canonical_predicate': field[
+                        'xml_canonical_match_predicate'
+                    ],
+                },
+            )
+            canonical_group['indexes'].append(index)
         xml_string_guards = {
             'bool': 'bool' in present_scalar_kinds,
             'integer': 'integer' in present_scalar_kinds,
@@ -1456,6 +3341,13 @@ class AvroToRust:
             'union_enum_name': union_enum_name,
             'union_fields': union_fields,
             'xml_string_guards': xml_string_guards,
+            'xml_has_typed_scalar_parse': bool(
+                present_scalar_kinds & {'bool', 'integer', 'float'}
+            ),
+            'xml_has_record_variant': any(
+                field['xml_representation'] == 'record'
+                for field in union_fields
+            ),
             'avro_schema': avro_schema_str,
             'source_avro_schema': source_avro_schema_str,
             'source_null_index': (
@@ -1464,7 +3356,7 @@ class AvroToRust:
             'ambiguous_json_field': next(
                 (
                     field for field in union_fields
-                    if field['json_ambiguous']
+                    if field['json_default_is_ambiguous']
                 ),
                 None,
             ),
@@ -1472,6 +3364,8 @@ class AvroToRust:
                 field['json_match_predicate']
                 for field in union_fields
             ],
+            'xml_match_groups': list(xml_match_groups.values()),
+            'xml_canonical_groups': list(xml_canonical_groups.values()),
         }
 
         file_name = self.to_file_name(qualified_union_enum_name)
@@ -1579,129 +3473,468 @@ class AvroToRust:
         )
         return all(marker in content for marker in markers)
 
+    @staticmethod
+    def normalize_json_union_signature(signatures):
+        """Returns a flattened, deduplicated union signature."""
+        flattened = []
+        for signature in signatures:
+            if (
+                isinstance(signature, tuple)
+                and signature
+                and signature[0] == 'union'
+            ):
+                flattened.extend(signature[1])
+            else:
+                flattened.append(signature)
+        unique = tuple(dict.fromkeys(flattened))
+        if len(unique) == 1:
+            return unique[0]
+        return ('union', unique)
+
+    def generated_json_union_branches(self, avro_type, namespace: str):
+        """Returns branches represented by the generated Rust field type."""
+        non_null_types = [item for item in avro_type if item != 'null']
+        if not non_null_types:
+            return ('null',)
+        if len(non_null_types) > 1:
+            return tuple(non_null_types)
+
+        branch = non_null_types[0]
+        if (
+            isinstance(branch, str)
+            and not is_any_value_type(branch)
+            and self.resolve_avro_named_type(branch, namespace) is None
+        ):
+            return (branch, 'null')
+        return (branch,)
+
+    def _build_json_signature(
+        self,
+        avro_type,
+        namespace: str,
+        mode: str,
+    ) -> JsonSignature:
+        """Builds a cycle-safe graph with one node per named schema node."""
+        cache_key = (
+            mode,
+            namespace,
+            (
+                ('name', avro_type)
+                if isinstance(avro_type, str)
+                else ('identity', id(avro_type))
+            ),
+        )
+        if self._json_signature_cache is not None:
+            cached = self._json_signature_cache.get(cache_key)
+            if cached is not None:
+                self.json_safety_signature_stats['cache_hits'] += 1
+                return cached
+        nodes: list[tuple | None] = []
+        atoms = {}
+        named_nodes = {}
+        anonymous_nodes = {}
+        pending = []
+        generic_type_cache = {}
+        acyclic_type_cache = {}
+
+        def add_atom(kind: str) -> int:
+            if kind not in atoms:
+                atoms[kind] = len(nodes)
+                nodes.append((kind, None))
+            return atoms[kind]
+
+        def add_pending(key, kind, payload, current_namespace):
+            if key in anonymous_nodes:
+                return anonymous_nodes[key]
+            node_id = len(nodes)
+            anonymous_nodes[key] = node_id
+            nodes.append(None)
+            pending.append(
+                (kind, node_id, payload, current_namespace)
+            )
+            return node_id
+
+        def is_acyclic(root) -> bool:
+            active = set()
+            finished = set()
+            stack = [(root, False)]
+            while stack:
+                value, leaving = stack.pop()
+                if not isinstance(value, (dict, list)):
+                    continue
+                value_id = id(value)
+                if leaving:
+                    active.discard(value_id)
+                    finished.add(value_id)
+                    continue
+                if value_id in active:
+                    return False
+                if value_id in finished:
+                    continue
+                active.add(value_id)
+                stack.append((value, True))
+                children = value.values() if isinstance(value, dict) else value
+                stack.extend((child, False) for child in children)
+            return True
+
+        def ensure(node, current_namespace: str) -> int:
+            while True:
+                if isinstance(node, str):
+                    if is_any_value_type(node):
+                        return add_atom(
+                            'null' if mode == 'default' else 'any'
+                        )
+                    resolved = self.resolve_avro_named_type(
+                        node,
+                        current_namespace,
+                    )
+                    if resolved:
+                        fullname = self.avro_type_fullnames[id(resolved)]
+                        if resolved.get('type') == 'record':
+                            if fullname in named_nodes:
+                                return named_nodes[fullname]
+                            node_id = len(nodes)
+                            named_nodes[fullname] = node_id
+                            nodes.append(None)
+                            pending.append((
+                                'record',
+                                node_id,
+                                resolved,
+                                fullname.rpartition('.')[0],
+                            ))
+                            return node_id
+                        if (
+                            resolved.get('type') == 'fixed'
+                            and resolved.get('logicalType') == 'decimal'
+                        ):
+                            return add_atom(
+                                'const_number:0'
+                                if mode == 'default'
+                                else 'number'
+                            )
+                        if resolved.get('type') == 'enum':
+                            symbols = resolved.get('symbols', [])
+                            if mode == 'match' and self.xml_annotation:
+                                symbols = symbols + [
+                                    xml_enum_wire_value(
+                                        symbol,
+                                        resolved,
+                                    )
+                                    for symbol in symbols
+                                ]
+                            if mode == 'default':
+                                symbols = symbols[:1]
+                            return add_atom(
+                                'enum:' + '\x1f'.join(sorted(symbols))
+                            )
+                        return add_atom(
+                            (
+                                'empty_array'
+                                if mode == 'default'
+                                else 'array'
+                            )
+                            if resolved.get('type') == 'fixed'
+                            else resolved.get('type', node)
+                        )
+                    if node in ('int', 'long'):
+                        return add_atom(
+                            'const_integer:0'
+                            if mode == 'default'
+                            else 'integer'
+                        )
+                    if node in ('float', 'double'):
+                        return add_atom(
+                            'const_number:0'
+                            if mode == 'default'
+                            else 'number'
+                        )
+                    if mode == 'default' and node == 'string':
+                        return add_atom('const_string:')
+                    if mode == 'default' and node == 'boolean':
+                        return add_atom('const_boolean:false')
+                    if mode == 'default' and node == 'bytes':
+                        return add_atom('empty_array')
+                    if mode == 'match' and node == 'bytes':
+                        return add_atom('array')
+                    return add_atom(node)
+
+                if isinstance(node, list):
+                    union_key = ('union', id(node), current_namespace)
+                    if union_key in anonymous_nodes:
+                        return anonymous_nodes[union_key]
+                    is_generic = generic_type_cache.get(id(node))
+                    if is_generic is None:
+                        acyclic = is_acyclic(node)
+                        acyclic_type_cache[id(node)] = acyclic
+                        is_generic = acyclic and is_generic_avro_type(node)
+                        generic_type_cache[id(node)] = is_generic
+                    if is_generic and mode != 'default':
+                        if self.serde_annotation or self.xml_annotation:
+                            return add_atom('any')
+                        if mode == 'match':
+                            return add_pending(
+                                (
+                                    'generic-map-match',
+                                    id(node),
+                                    current_namespace,
+                                ),
+                                'map_match',
+                                'string',
+                                current_namespace,
+                            )
+                        key = ('generic-map', id(node), current_namespace)
+                        return add_pending(
+                            key,
+                            'map',
+                            'string',
+                            current_namespace,
+                        )
+                    generated_branches = self.generated_json_union_branches(
+                        node,
+                        current_namespace,
+                    )
+                    if mode == 'default':
+                        if not acyclic_type_cache[id(node)]:
+                            return add_pending(
+                                union_key,
+                                'union',
+                                generated_branches,
+                                current_namespace,
+                            )
+                        if (
+                            'null' in generated_branches
+                            or not generated_branches
+                        ):
+                            return add_atom('null')
+                        node = generated_branches[0]
+                        continue
+                    if len(generated_branches) == 1:
+                        node = generated_branches[0]
+                        continue
+                    return add_pending(
+                        union_key,
+                        'union',
+                        generated_branches,
+                        current_namespace,
+                    )
+
+                if not isinstance(node, dict):
+                    return add_atom(str(node))
+
+                node_type = node.get('type')
+                if node_type == 'record':
+                    fullname, record_namespace, _ = (
+                        self.canonical_avro_name(
+                            node['name'],
+                            node.get('namespace', current_namespace),
+                        )
+                    )
+                    if fullname in named_nodes:
+                        return named_nodes[fullname]
+                    node_id = len(nodes)
+                    named_nodes[fullname] = node_id
+                    nodes.append(None)
+                    pending.append((
+                        'record',
+                        node_id,
+                        node,
+                        record_namespace,
+                    ))
+                    return node_id
+                if node_type == 'enum':
+                    symbols = node.get('symbols', [])
+                    if mode == 'match' and self.xml_annotation:
+                        symbols = symbols + [
+                            xml_enum_wire_value(symbol, node)
+                            for symbol in symbols
+                        ]
+                    if mode == 'default':
+                        symbols = symbols[:1]
+                    return add_atom(
+                        'enum:' + '\x1f'.join(sorted(symbols))
+                    )
+                if node_type == 'array':
+                    if mode == 'match':
+                        return add_atom('array')
+                    if mode == 'default':
+                        return add_atom('empty_array')
+                    return add_pending(
+                        ('array', id(node), current_namespace),
+                        'array',
+                        node['items'],
+                        current_namespace,
+                    )
+                if node_type == 'map':
+                    if mode == 'match':
+                        return add_pending(
+                            ('map-match', id(node), current_namespace),
+                            'map_match',
+                            node['values'],
+                            current_namespace,
+                        )
+                    if mode == 'default':
+                        return add_atom('empty_map')
+                    return add_pending(
+                        ('map', id(node), current_namespace),
+                        'map',
+                        node['values'],
+                        current_namespace,
+                    )
+                if node.get('logicalType') in {
+                    'date',
+                    'time-millis',
+                    'time-micros',
+                    'timestamp-millis',
+                    'timestamp-micros',
+                    'uuid',
+                }:
+                    if mode == 'default':
+                        default_values = {
+                            'date': '1970-01-01',
+                            'time-millis': '00:00:00',
+                            'time-micros': '00:00:00',
+                            'timestamp-millis': '1970-01-01T00:00:00',
+                            'timestamp-micros': '1970-01-01T00:00:00',
+                            'uuid': (
+                                '00000000-0000-0000-0000-000000000000'
+                            ),
+                        }
+                        return add_atom(
+                            'const_string:'
+                            + default_values[node.get('logicalType')]
+                        )
+                    return add_atom('string')
+                if (
+                    node_type in ('fixed', 'bytes')
+                    and node.get('logicalType') == 'decimal'
+                ):
+                    return add_atom(
+                        'const_number:0'
+                        if mode == 'default'
+                        else 'number'
+                    )
+                if node_type in ('fixed', 'bytes'):
+                    return add_atom(
+                        'empty_array' if mode == 'default' else 'array'
+                    )
+                node = node_type
+
+        root = ensure(avro_type, namespace)
+        pending_index = 0
+        while pending_index < len(pending):
+            kind, node_id, payload, current_namespace = pending[pending_index]
+            pending_index += 1
+            if kind == 'record':
+                fields = []
+                for field in payload.get('fields', []):
+                    field_name = (
+                        tuple(dict.fromkeys((
+                            field['name'],
+                            (
+                                f"@{xml_wire_name(field['name'], field)}"
+                                if field.get(
+                                    'xmlkind',
+                                    'element',
+                                ) == 'attribute'
+                                else xml_wire_name(
+                                    field['name'],
+                                    field,
+                                )
+                            ),
+                        )))
+                        if mode == 'match' and self.xml_annotation
+                        else field['name']
+                    )
+                    child_id = ensure(field['type'], current_namespace)
+                    if mode == 'match':
+                        field_type = self.analysis_rust_type(
+                            field['type'],
+                            current_namespace,
+                        )
+                        field_name = (
+                            '__field__',
+                            field_name,
+                            bool(
+                                field_type
+                                and field_type.startswith('Option<')
+                            ),
+                        )
+                    fields.append((field_name, child_id))
+                nodes[node_id] = (
+                    'record_match' if mode == 'match' else 'record',
+                    tuple(fields),
+                )
+            elif kind == 'union':
+                branch_ids = []
+                for branch in payload:
+                    branch_id = ensure(branch, current_namespace)
+                    if branch_id not in branch_ids:
+                        branch_ids.append(branch_id)
+                nodes[node_id] = ('union', tuple(branch_ids))
+            else:
+                nodes[node_id] = (
+                    kind,
+                    ensure(payload, current_namespace),
+                )
+
+        signature = JsonSignature(root, nodes)
+        if self._json_signature_cache is not None:
+            self._json_signature_cache[cache_key] = signature
+            self.json_safety_signature_stats['build_count'] += 1
+            self.json_safety_signature_stats[
+                'node_count'
+            ] += signature.node_count
+        return signature
+
     def get_json_shape_signature(
         self,
         avro_type,
         namespace: str,
         resolving=None,
     ):
-        """Returns a stable structural signature for untagged JSON matching."""
-        resolving = () if resolving is None else resolving
-        if isinstance(avro_type, str):
-            resolved = self.resolve_avro_named_type(avro_type, namespace)
-            if resolved:
-                fullname = self.avro_type_fullnames[id(resolved)]
-                if fullname in resolving:
-                    return ('ref', resolving.index(fullname))
-                return self.get_json_shape_signature(
-                    resolved,
-                    fullname.rpartition('.')[0],
-                    resolving,
-                )
-            if avro_type in ('int', 'long'):
-                return 'integer'
-            if avro_type in ('float', 'double'):
-                return 'number'
-            return avro_type
-        if isinstance(avro_type, list):
-            return (
-                'union',
-                tuple(
-                    self.get_json_shape_signature(
-                        item,
-                        namespace,
-                        resolving,
-                    )
-                    for item in avro_type
-                ),
-            )
-        if not isinstance(avro_type, dict):
-            return str(avro_type)
-        node_type = avro_type.get('type')
-        if node_type == 'record':
-            fullname, record_namespace, _ = self.canonical_avro_name(
-                avro_type['name'],
-                avro_type.get('namespace', namespace),
-            )
-            if fullname in resolving:
-                return ('ref', resolving.index(fullname))
-            nested_resolving = resolving + (fullname,)
-            return (
-                'record',
-                tuple(
-                    (
-                        field['name'],
-                        self.get_json_shape_signature(
-                            field['type'],
-                            record_namespace,
-                            nested_resolving,
-                        ),
-                    )
-                    for field in avro_type.get('fields', [])
-                ),
-            )
-        if node_type == 'enum':
-            return 'string'
-        if node_type == 'array':
-            return (
-                'array',
-                self.get_json_shape_signature(
-                    avro_type['items'],
-                    namespace,
-                    resolving,
-                ),
-            )
-        if node_type == 'map':
-            return (
-                'map',
-                self.get_json_shape_signature(
-                    avro_type['values'],
-                    namespace,
-                    resolving,
-                ),
-            )
-        return self.get_json_shape_signature(
-            node_type,
-            namespace,
-            resolving,
-        )
+        """Returns a bounded graph for generated untagged JSON values."""
+        del resolving
+        return self._build_json_signature(avro_type, namespace, 'shape')
 
-    def is_json_round_trip_safe(
+    def get_json_default_shape_signature(
         self,
         avro_type,
         namespace: str,
         resolving=None,
+    ):
+        """Returns a bounded graph for the generated Rust Default value."""
+        del resolving
+        return self._build_json_signature(avro_type, namespace, 'default')
+
+    def evaluate_json_round_trip_safe(
+        self,
+        avro_type,
+        namespace: str,
+        named_safety,
+        owner=None,
     ) -> bool:
-        """Checks whether generated untagged JSON has a deterministic branch."""
-        resolving = () if resolving is None else resolving
+        """Evaluates JSON safety using the current named-type fixed point."""
         if isinstance(avro_type, str):
             resolved = self.resolve_avro_named_type(avro_type, namespace)
             if not resolved:
                 return True
             fullname = self.avro_type_fullnames[id(resolved)]
-            if fullname in resolving:
-                return True
-            return self.is_json_round_trip_safe(
-                resolved,
-                fullname.rpartition('.')[0],
-                resolving + (fullname,),
-            )
+            return named_safety.get(fullname, True)
         if isinstance(avro_type, list):
             branches = [item for item in avro_type if item != 'null']
             if len(branches) <= 1:
                 return (
                     not branches
-                    or self.is_json_round_trip_safe(
+                    or self.evaluate_json_round_trip_safe(
                         branches[0],
                         namespace,
-                        resolving,
+                        named_safety,
                     )
                 )
             match_signatures = [
                 self.get_json_match_signature(
                     branch,
                     namespace,
-                    resolving,
                 )
                 for branch in branches
             ]
@@ -1709,7 +3942,6 @@ class AvroToRust:
                 self.get_json_shape_signature(
                     branch,
                     namespace,
-                    resolving,
                 )
                 for branch in branches
             ]
@@ -1721,10 +3953,10 @@ class AvroToRust:
                         shape_signature,
                     )
                 ) == 1
-                and self.is_json_round_trip_safe(
+                and self.evaluate_json_round_trip_safe(
                     branch,
                     namespace,
-                    resolving,
+                    named_safety,
                 )
                 for branch, shape_signature
                 in zip(branches, shape_signatures)
@@ -1738,36 +3970,166 @@ class AvroToRust:
                 avro_type['name'],
                 avro_type.get('namespace', namespace),
             )
-            if fullname in resolving:
-                return True
-            nested_resolving = resolving + (fullname,)
+            if fullname != owner and fullname in named_safety:
+                return named_safety[fullname]
             return all(
-                self.is_json_round_trip_safe(
+                self.evaluate_json_round_trip_safe(
                     field['type'],
                     record_namespace,
-                    nested_resolving,
+                    named_safety,
                 )
                 for field in avro_type.get('fields', [])
             )
         if node_type == 'array':
-            return self.is_json_round_trip_safe(
+            return self.evaluate_json_round_trip_safe(
                 avro_type['items'],
                 namespace,
-                resolving,
+                named_safety,
             )
         if node_type == 'map':
-            return self.is_json_round_trip_safe(
+            return self.evaluate_json_round_trip_safe(
                 avro_type['values'],
                 namespace,
-                resolving,
+                named_safety,
             )
         if isinstance(node_type, (dict, list)):
-            return self.is_json_round_trip_safe(
+            return self.evaluate_json_round_trip_safe(
                 node_type,
                 namespace,
-                resolving,
+                named_safety,
             )
         return True
+
+    def ensure_json_round_trip_safety(self):
+        """Computes the greatest fixed point for named-type JSON safety."""
+        if self.json_round_trip_safety is not None:
+            return
+        safety = {
+            fullname: True
+            for fullname in self.avro_named_types
+        }
+        reverse_dependencies = {
+            fullname: set()
+            for fullname in self.avro_named_types
+        }
+
+        def collect_dependencies(owner, schema):
+            dependencies = set()
+            pending = [(schema, owner.rpartition('.')[0])]
+            while pending:
+                node, namespace = pending.pop()
+                if isinstance(node, str):
+                    resolved = self.resolve_avro_named_type(node, namespace)
+                    if resolved:
+                        dependencies.add(
+                            self.avro_type_fullnames[id(resolved)]
+                        )
+                    continue
+                if isinstance(node, list):
+                    pending.extend((item, namespace) for item in node)
+                    continue
+                if not isinstance(node, dict):
+                    continue
+                node_type = node.get('type')
+                if node_type == 'record':
+                    fullname, record_namespace, _ = (
+                        self.canonical_avro_name(
+                            node['name'],
+                            node.get('namespace', namespace),
+                        )
+                    )
+                    if fullname != owner:
+                        dependencies.add(fullname)
+                        continue
+                    pending.extend(
+                        (field['type'], record_namespace)
+                        for field in node.get('fields', [])
+                    )
+                elif node_type == 'array':
+                    pending.append((node.get('items'), namespace))
+                elif node_type == 'map':
+                    pending.append((node.get('values'), namespace))
+                elif isinstance(node_type, (dict, list)):
+                    pending.append((node_type, namespace))
+                elif isinstance(node_type, str):
+                    resolved = self.resolve_avro_named_type(
+                        node_type,
+                        namespace,
+                    )
+                    if resolved:
+                        dependencies.add(
+                            self.avro_type_fullnames[id(resolved)]
+                        )
+            return dependencies
+
+        for owner, schema in self.avro_named_types.items():
+            for dependency in collect_dependencies(owner, schema):
+                if dependency != owner:
+                    reverse_dependencies.setdefault(
+                        dependency,
+                        set(),
+                    ).add(owner)
+
+        previous_cache = self._json_signature_cache
+        self._json_signature_cache = {}
+        self.json_safety_signature_stats = {
+            'build_count': 0,
+            'node_count': 0,
+            'cache_hits': 0,
+        }
+        try:
+            pending = sorted(self.avro_named_types)
+            queued = set(pending)
+            pending_index = 0
+            while pending_index < len(pending):
+                fullname = pending[pending_index]
+                pending_index += 1
+                queued.discard(fullname)
+                if not safety[fullname]:
+                    continue
+                schema = self.avro_named_types[fullname]
+                namespace = fullname.rpartition('.')[0]
+                if self.evaluate_json_round_trip_safe(
+                    schema,
+                    namespace,
+                    safety,
+                    owner=fullname,
+                ):
+                    continue
+                safety[fullname] = False
+                for dependent in sorted(
+                    reverse_dependencies.get(fullname, ())
+                ):
+                    if safety[dependent] and dependent not in queued:
+                        pending.append(dependent)
+                        queued.add(dependent)
+            self.json_round_trip_safety = safety
+        finally:
+            self._json_signature_cache = previous_cache
+
+    def is_json_round_trip_safe(
+        self,
+        avro_type,
+        namespace: str,
+        resolving=None,
+    ) -> bool:
+        """Checks whether generated untagged JSON has a deterministic branch."""
+        del resolving
+        self.ensure_json_round_trip_safety()
+        if isinstance(avro_type, str):
+            resolved = self.resolve_avro_named_type(avro_type, namespace)
+            if resolved:
+                fullname = self.avro_type_fullnames[id(resolved)]
+                return self.json_round_trip_safety[fullname]
+        if isinstance(avro_type, dict) and avro_type.get('name'):
+            fullname = self.avro_type_fullnames.get(id(avro_type))
+            if fullname in self.json_round_trip_safety:
+                return self.json_round_trip_safety[fullname]
+        return self.evaluate_json_round_trip_safe(
+            avro_type,
+            namespace,
+            self.json_round_trip_safety,
+        )
 
     def get_json_match_signature(
         self,
@@ -1775,106 +4137,382 @@ class AvroToRust:
         namespace: str,
         resolving=None,
     ):
-        """Returns the JSON shape accepted by a generated union matcher."""
-        resolving = () if resolving is None else resolving
-        if isinstance(avro_type, str):
-            resolved = self.resolve_avro_named_type(avro_type, namespace)
-            if resolved:
-                fullname = self.avro_type_fullnames[id(resolved)]
-                if fullname in resolving:
-                    return ('ref', resolving.index(fullname))
-                return self.get_json_match_signature(
-                    resolved,
-                    fullname.rpartition('.')[0],
-                    resolving,
-                )
-            if avro_type in ('int', 'long'):
-                return 'integer'
-            if avro_type in ('float', 'double'):
-                return 'number'
-            if avro_type == 'bytes':
-                return 'array'
-            return avro_type
-        if isinstance(avro_type, list):
-            return (
-                'union',
-                tuple(
-                    self.get_json_match_signature(
-                        item,
-                        namespace,
-                        resolving,
-                    )
-                    for item in avro_type
-                ),
-            )
-        if not isinstance(avro_type, dict):
-            return str(avro_type)
-        node_type = avro_type.get('type')
-        if node_type == 'record':
-            fullname, record_namespace, _ = self.canonical_avro_name(
-                avro_type['name'],
-                avro_type.get('namespace', namespace),
-            )
-            if fullname in resolving:
-                return ('ref', resolving.index(fullname))
-            nested_resolving = resolving + (fullname,)
-            return (
-                'record_match',
-                tuple(
-                    (
-                        field['name'],
-                        self.get_json_match_signature(
-                            field['type'],
-                            record_namespace,
-                            nested_resolving,
-                        ),
-                    )
-                    for field in avro_type.get('fields', [])
-                ),
-            )
-        if node_type == 'enum':
-            return 'string'
-        if node_type in ('array', 'fixed', 'bytes'):
-            return 'array'
-        if node_type == 'map':
-            return 'object'
-        return self.get_json_match_signature(
-            node_type,
-            namespace,
-            resolving,
-        )
+        """Returns a bounded graph accepted by a generated union matcher."""
+        del resolving
+        return self._build_json_signature(avro_type, namespace, 'match')
 
     @staticmethod
-    def json_match_accepts_shape(match_signature, shape_signature) -> bool:
-        """Checks whether a generated matcher accepts a serialized shape."""
-        shape_kind = (
-            shape_signature[0]
-            if isinstance(shape_signature, tuple) and shape_signature
-            else shape_signature
-        )
-        match_kind = (
-            match_signature[0]
-            if isinstance(match_signature, tuple) and match_signature
-            else match_signature
-        )
-        if match_kind == 'record_match':
-            if shape_kind != 'record':
-                return False
-            expected_fields = dict(match_signature[1])
-            value_fields = dict(shape_signature[1])
-            return all(
-                field_name in value_fields
-                and AvroToRust.json_match_accepts_shape(
-                    field_match,
-                    value_fields[field_name],
-                )
-                for field_name, field_match in expected_fields.items()
+    def _json_signature_root(signature):
+        if isinstance(signature, JsonSignature):
+            return _JsonSignatureRef(signature, signature.root)
+        return signature
+
+    @staticmethod
+    def _json_signature_key(signature):
+        if isinstance(signature, _JsonSignatureRef):
+            return (
+                'graph',
+                id(signature.signature),
+                signature.node_id,
             )
-        if match_signature == 'object':
-            return shape_kind in ('map', 'record')
-        if match_signature == 'array':
-            return shape_kind in ('array', 'bytes', 'fixed')
-        return match_signature == shape_signature
+        if isinstance(signature, tuple):
+            return ('legacy', id(signature))
+        return ('atom', signature)
+
+    @staticmethod
+    def _json_signature_view(signature):
+        if isinstance(signature, _JsonSignatureRef):
+            kind, data = signature.signature.nodes[signature.node_id]
+            if kind in ('record', 'record_match'):
+                return kind, tuple(
+                    (
+                        name,
+                        _JsonSignatureRef(signature.signature, child_id),
+                    )
+                    for name, child_id in data
+                )
+            if kind == 'union':
+                return kind, tuple(
+                    _JsonSignatureRef(signature.signature, child_id)
+                    for child_id in data
+                )
+            if data is not None:
+                return kind, _JsonSignatureRef(signature.signature, data)
+            return kind, None
+        if isinstance(signature, tuple) and signature:
+            return (
+                signature[0],
+                signature[1] if len(signature) > 1 else None,
+            )
+        return signature, None
+
+    @staticmethod
+    def json_match_accepts_shape(
+        match_signature,
+        shape_signature,
+        _memo=None,
+        _stats=None,
+    ) -> bool:
+        """Checks matcher overlap across all realizable serialized shapes."""
+        if _memo is None:
+            _memo = {}
+        start = (
+            AvroToRust._json_signature_root(match_signature),
+            AvroToRust._json_signature_root(shape_signature),
+        )
+
+        def pair_key(pair):
+            return tuple(
+                AvroToRust._json_signature_key(signature)
+                for signature in pair
+            )
+
+        start_key = pair_key(start)
+        if start_key in _memo:
+            if _stats is not None:
+                _stats.update({
+                    'equation_count': 0,
+                    'equation_evaluations': 0,
+                    'queue_pushes': 0,
+                    'dependency_notifications': 0,
+                })
+            return _memo[start_key]
+
+        equations = {}
+        operands = {start_key: start}
+        pending = [start_key]
+        while pending:
+            key = pending.pop()
+            if key in equations:
+                continue
+            match_node, shape_node = operands[key]
+            shape_kind, shape_data = AvroToRust._json_signature_view(
+                shape_node
+            )
+            match_kind, match_data = AvroToRust._json_signature_view(
+                match_node
+            )
+            dependencies = None
+            operator = None
+            if shape_kind == 'missing':
+                equations[key] = False
+            elif match_kind == 'any' or shape_kind == 'any':
+                equations[key] = True
+            elif shape_kind == 'union':
+                operator = 'any'
+                dependencies = [
+                    (match_node, branch_shape)
+                    for branch_shape in shape_data
+                ]
+            elif match_kind == 'union':
+                operator = 'any'
+                dependencies = [
+                    (branch_match, shape_node)
+                    for branch_match in match_data
+                ]
+            elif match_kind == 'record_match':
+                if shape_kind == 'record':
+                    operator = 'all'
+                    value_fields = dict(shape_data)
+                    dependencies = []
+                    for field_name, field_match in match_data:
+                        optional = (
+                            isinstance(field_name, tuple)
+                            and len(field_name) == 3
+                            and field_name[0] == '__field__'
+                            and field_name[2]
+                        )
+                        names = (
+                            field_name[1]
+                            if (
+                                isinstance(field_name, tuple)
+                                and len(field_name) == 3
+                                and field_name[0] == '__field__'
+                            )
+                            else field_name
+                        )
+                        names = (
+                            names if isinstance(names, tuple) else (names,)
+                        )
+                        field_shape = next(
+                            (
+                                value_fields[name]
+                                for name in names
+                                if name in value_fields
+                            ),
+                            None,
+                        )
+                        if field_shape is None:
+                            if not optional:
+                                dependencies.append((
+                                    field_match,
+                                    'missing',
+                                ))
+                        else:
+                            dependencies.append((
+                                field_match,
+                                field_shape,
+                            ))
+                elif shape_kind == 'empty_map':
+                    operator = 'all'
+                    dependencies = [
+                        (field_match, 'missing')
+                        for field_name, field_match in match_data
+                        if not (
+                            isinstance(field_name, tuple)
+                            and len(field_name) == 3
+                            and field_name[0] == '__field__'
+                            and field_name[2]
+                        )
+                    ]
+                elif shape_kind == 'map':
+                    operator = 'all'
+                    dependencies = [
+                        (field_match, shape_data)
+                        for field_name, field_match in match_data
+                        if not (
+                            isinstance(field_name, tuple)
+                            and len(field_name) == 3
+                            and field_name[0] == '__field__'
+                            and field_name[2]
+                        )
+                    ]
+                else:
+                    equations[key] = False
+            elif match_kind == 'object':
+                equations[key] = shape_kind in (
+                    'empty_map',
+                    'map',
+                    'record',
+                )
+            elif match_kind == 'map_match':
+                if shape_kind in ('empty_map', 'map'):
+                    equations[key] = True
+                elif shape_kind == 'record':
+                    operator = 'all'
+                    dependencies = [
+                        (match_data, field_shape)
+                        for _, field_shape in shape_data
+                    ]
+                else:
+                    equations[key] = False
+            elif match_kind == 'number':
+                equations[key] = shape_kind in (
+                    'integer',
+                    'number',
+                    'const_integer:0',
+                    'const_number:0',
+                )
+            elif match_kind == 'integer':
+                equations[key] = shape_kind in (
+                    'integer',
+                    'const_integer:0',
+                )
+            elif match_kind == 'array':
+                equations[key] = shape_kind in (
+                    'array',
+                    'bytes',
+                    'fixed',
+                    'empty_array',
+                )
+            elif (
+                isinstance(match_kind, str)
+                and match_kind.startswith('enum:')
+            ):
+                match_symbols = set(match_kind[5:].split('\x1f'))
+                if (
+                    isinstance(shape_kind, str)
+                    and shape_kind.startswith('enum:')
+                ):
+                    shape_symbols = set(shape_kind[5:].split('\x1f'))
+                    equations[key] = bool(
+                        match_symbols & shape_symbols
+                    )
+                elif (
+                    isinstance(shape_kind, str)
+                    and shape_kind.startswith('const_string:')
+                ):
+                    equations[key] = (
+                        shape_kind[len('const_string:'):]
+                        in match_symbols
+                    )
+                else:
+                    equations[key] = shape_kind == 'string'
+            elif (
+                match_kind == 'string'
+                and isinstance(shape_kind, str)
+                and shape_kind.startswith('enum:')
+            ):
+                equations[key] = True
+            elif (
+                match_kind == 'string'
+                and isinstance(shape_kind, str)
+                and shape_kind.startswith('const_string:')
+            ):
+                equations[key] = True
+            elif match_kind == 'boolean':
+                equations[key] = shape_kind in (
+                    'boolean',
+                    'const_boolean:false',
+                )
+            else:
+                equations[key] = (
+                    match_kind == shape_kind
+                    and (
+                        match_data == shape_data
+                        if match_kind == 'ref'
+                        else True
+                    )
+                )
+            if dependencies is not None:
+                dependency_keys = []
+                for dependency in dependencies:
+                    alternatives = (
+                        dependency
+                        if operator == 'all_any'
+                        else (dependency,)
+                    )
+                    alternative_keys = []
+                    for alternative in alternatives:
+                        dependency_key = pair_key(alternative)
+                        alternative_keys.append(dependency_key)
+                        operands.setdefault(dependency_key, alternative)
+                        if dependency_key not in equations:
+                            pending.append(dependency_key)
+                    dependency_keys.append(
+                        tuple(alternative_keys)
+                        if operator == 'all_any'
+                        else alternative_keys[0]
+                    )
+                equations[key] = (operator, tuple(dependency_keys))
+
+        values = {
+            key: equation if isinstance(equation, bool) else False
+            for key, equation in equations.items()
+        }
+        dependents = defaultdict(set)
+        remaining = {}
+        satisfied_groups = defaultdict(set)
+        queue = deque()
+        queued = set()
+        queue_pushes = 0
+        equation_evaluations = 0
+        dependency_notifications = 0
+
+        def publish(key):
+            nonlocal queue_pushes
+            if values[key] and key not in queued:
+                queued.add(key)
+                queue.append(key)
+                queue_pushes += 1
+
+        for key, equation in equations.items():
+            if isinstance(equation, bool):
+                if equation:
+                    publish(key)
+                continue
+            equation_evaluations += 1
+            operator, dependencies = equation
+            if operator == 'any':
+                dependency_keys = set(dependencies)
+                for dependency in dependency_keys:
+                    dependents[dependency].add((key, None))
+                if any(values[dependency] for dependency in dependency_keys):
+                    values[key] = True
+                    publish(key)
+            elif operator == 'all':
+                dependency_keys = set(dependencies)
+                for dependency in dependency_keys:
+                    dependents[dependency].add((key, None))
+                remaining[key] = len(dependency_keys)
+                if remaining[key] == 0:
+                    values[key] = True
+                    publish(key)
+            else:
+                remaining[key] = len(dependencies)
+                for group_index, alternatives in enumerate(dependencies):
+                    alternative_keys = set(alternatives)
+                    for dependency in alternative_keys:
+                        dependents[dependency].add((key, group_index))
+                    if any(
+                        values[dependency]
+                        for dependency in alternative_keys
+                    ):
+                        satisfied_groups[key].add(group_index)
+                        remaining[key] -= 1
+                if remaining[key] == 0:
+                    values[key] = True
+                    publish(key)
+
+        while queue:
+            dependency = queue.popleft()
+            queued.remove(dependency)
+            for key, group_index in dependents[dependency]:
+                dependency_notifications += 1
+                if values[key]:
+                    continue
+                operator, _ = equations[key]
+                if operator == 'any':
+                    values[key] = True
+                elif operator == 'all':
+                    remaining[key] -= 1
+                    values[key] = remaining[key] == 0
+                elif group_index not in satisfied_groups[key]:
+                    satisfied_groups[key].add(group_index)
+                    remaining[key] -= 1
+                    values[key] = remaining[key] == 0
+                if values[key]:
+                    publish(key)
+
+        if _stats is not None:
+            _stats.update({
+                'equation_count': len(equations),
+                'equation_evaluations': equation_evaluations,
+                'queue_pushes': queue_pushes,
+                'dependency_notifications': dependency_notifications,
+            })
+        _memo.update(values)
+        return values[start_key]
 
     def to_file_name(self, qualified_name):
         """Converts a qualified union enum name to a file name"""
@@ -1915,8 +4553,11 @@ class AvroToRust:
         rust_type: str,
         avro_type,
         namespace: str,
+        wrap_optional: bool = False,
     ) -> str:
         """Generates a random value that respects schema-specific sizes."""
+        if isinstance(avro_type, str) and is_any_value_type(avro_type):
+            return 'serde_json::json!({"value": {}})'
         resolved_type = avro_type
         if isinstance(avro_type, str):
             resolved_type = (
@@ -1936,6 +4577,7 @@ class AvroToRust:
                     inner_type,
                     resolved_type['items'],
                     namespace,
+                    True,
                 )
                 return f'(0..3).map(|_| {inner_value}).collect()'
             if node_type == 'map':
@@ -1944,6 +4586,7 @@ class AvroToRust:
                     inner_type,
                     resolved_type['values'],
                     namespace,
+                    True,
                 )
                 return (
                     '(0..3).map(|_| ('
@@ -1955,14 +4598,17 @@ class AvroToRust:
                 item for item in avro_type if item != 'null'
             ]
             if len(non_null_types) == 1:
-                inner_type = (
-                    rust_type[7:-1]
-                    if rust_type.startswith('Option<') else rust_type
-                )
-                return self.generate_random_value_for_avro(
+                optional = rust_type.startswith('Option<')
+                inner_type = rust_type[7:-1] if optional else rust_type
+                value = self.generate_random_value_for_avro(
                     inner_type,
                     non_null_types[0],
                     namespace,
+                )
+                return (
+                    f'Some({value})'
+                    if optional and wrap_optional
+                    else value
                 )
             return self.generate_random_value(rust_type)
         return self.generate_random_value(rust_type)
