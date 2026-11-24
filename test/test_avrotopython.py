@@ -19,6 +19,56 @@ sys.path.append(project_root)
 
 
 class TestAvroToPython(unittest.TestCase):
+    def test_nullable_falsy_values_survive_json_and_avro_roundtrips(self):
+        import io
+        import json
+        import avro.io
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+
+        schema = {
+            "type": "record", "name": "OptionalValues", "namespace": "example.issue591",
+            "fields": [
+                {"name": "trend", "type": ["null", "int"], "default": None},
+                {"name": "km", "type": ["null", "double"], "default": None},
+                {"name": "active", "type": ["null", "boolean"], "default": None},
+                {"name": "label", "type": ["null", "string"], "default": None},
+                {"name": "items", "type": ["null", {"type": "array", "items": "int"}], "default": None},
+                {"name": "metadata", "type": ["null", {"type": "map", "values": "string"}], "default": None},
+            ],
+        }
+        with tempfile.TemporaryDirectory(prefix="avrotize-issue591-") as output:
+            convert_avro_schema_to_python(
+                schema, output, package_name="issue591_values",
+                dataclasses_json_annotation=True, avro_annotation=True,
+            )
+            generated_src = os.path.join(output, "src")
+            sys.path.insert(0, generated_src)
+            try:
+                module = importlib.import_module("issue591_values.example.issue591.optionalvalues")
+                values = module.OptionalValues
+                cases = [
+                    {"trend": 0, "km": 0.0, "active": False, "label": "", "items": [], "metadata": {}},
+                    {field["name"]: None for field in schema["fields"]},
+                    {"trend": -1, "km": 1.5, "active": True, "label": "test",
+                     "items": [0, 1], "metadata": {"key": "value"}},
+                ]
+                for expected in cases:
+                    with self.subTest(values=expected):
+                        record = values.from_serializer_dict(expected)
+                        self.assertEqual(json.loads(record.to_byte_array("application/json")), expected)
+                        encoded = record.to_byte_array("application/vnd.apache.avro+avro")
+                        decoded = avro.io.DatumReader(record.AvroType).read(
+                            avro.io.BinaryDecoder(io.BytesIO(encoded)))
+                        self.assertEqual(decoded, expected)
+                        self.assertEqual(values.from_data(encoded, "application/vnd.apache.avro+avro"),
+                                         record)
+            finally:
+                sys.path.remove(generated_src)
+                for name in list(sys.modules):
+                    if name == "issue591_values" or name.startswith("issue591_values."):
+                        sys.modules.pop(name)
+
     def test_pyproject_declares_avro_runtime_only_with_avro_annotation(self):
         import tomllib
 
