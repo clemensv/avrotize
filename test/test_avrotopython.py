@@ -19,6 +19,136 @@ sys.path.append(project_root)
 
 
 class TestAvroToPython(unittest.TestCase):
+    def test_record_union_branches_accept_instances_and_dictionaries(self):
+        import io
+        import json
+        import avro.io
+        import avro.schema
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+
+        schema = {
+            "type": "record", "name": "UnionValues", "namespace": "example.union",
+            "fields": [
+                {"name": "choice", "type": [
+                    {"type": "record", "name": "Left",
+                     "fields": [{"name": "left", "type": "string"}]},
+                    {"type": "record", "name": "Right",
+                     "fields": [{"name": "right", "type": "int"}]},
+                ]},
+                {"name": "optional_choice", "type": ["null", "Left", "Right"],
+                 "default": None},
+            ],
+        }
+        with tempfile.TemporaryDirectory(prefix="avrotize-record-union-") as output:
+            convert_avro_schema_to_python(
+                schema, output, package_name="union_values",
+                dataclasses_json_annotation=True, avro_annotation=True,
+            )
+            generated_src = os.path.join(output, "src")
+            sys.path.insert(0, generated_src)
+            try:
+                module = importlib.import_module("union_values.example.union")
+                values = module.UnionValues
+                reader_schema = avro.schema.parse(json.dumps(schema))
+                for payload in ({"left": ""}, {"right": 0}):
+                    branch = module.Left if "left" in payload else module.Right
+                    for as_instance in (False, True):
+                        with self.subTest(payload=payload, instance=as_instance):
+                            record = values(
+                                choice=branch(**payload) if as_instance else dict(payload),
+                                optional_choice=None,
+                            )
+                            expected = {"choice": payload, "optional_choice": None}
+                            self.assertEqual(
+                                json.loads(record.to_byte_array("application/json")), expected)
+                            encoded = record.to_byte_array("application/vnd.apache.avro+avro")
+                            decoded = avro.io.DatumReader(reader_schema).read(
+                                avro.io.BinaryDecoder(io.BytesIO(encoded)))
+                            self.assertEqual(decoded, expected)
+                            restored = values.from_data(
+                                encoded, "application/vnd.apache.avro+avro")
+                            self.assertEqual(restored, record)
+                            self.assertIsInstance(restored.choice, branch)
+                with self.assertRaises(ValueError):
+                    values(choice={"unknown": "value"}, optional_choice=None)
+            finally:
+                sys.path.remove(generated_src)
+                for name in list(sys.modules):
+                    if name == "union_values" or name.startswith("union_values."):
+                        sys.modules.pop(name)
+
+    def test_nested_collection_records_preserve_temporal_and_binary_json_values(self):
+        import base64
+        import datetime
+        import io
+        import json
+        import avro.io
+        import avro.schema
+
+        from avrotize.avrotopython import convert_avro_schema_to_python
+
+        schema = {
+            "type": "record", "name": "NestedValues", "namespace": "example.nested",
+            "fields": [
+                {"name": "items", "type": {"type": "array", "items": {
+                    "type": "record", "name": "Observation", "fields": [
+                        {"name": "at", "type": {
+                            "type": "long", "logicalType": "timestamp-micros"}},
+                        {"name": "blob", "type": "bytes"},
+                        {"name": "count", "type": ["null", "int"], "default": None},
+                        {"name": "labels", "type": {"type": "array", "items": {
+                            "type": "enum", "name": "Label", "symbols": ["zero", "one"]}}},
+                        {"name": "labels_by_key", "type": {"type": "map", "values": "Label"}},
+                    ],
+                }}},
+                {"name": "by_key", "type": {"type": "map", "values": "Observation"}},
+            ],
+        }
+        with tempfile.TemporaryDirectory(prefix="avrotize-nested-records-") as output:
+            convert_avro_schema_to_python(
+                schema, output, package_name="nested_values",
+                dataclasses_json_annotation=True, avro_annotation=True,
+            )
+            generated_src = os.path.join(output, "src")
+            sys.path.insert(0, generated_src)
+            try:
+                module = importlib.import_module("nested_values.example.nested")
+                instant = datetime.datetime(
+                    2024, 1, 1, 0, 0, 0, 123456, tzinfo=datetime.timezone.utc)
+                item = {
+                    "at": instant, "blob": b"sample", "count": 0,
+                    "labels": ["zero"], "labels_by_key": {"sample": "one"},
+                }
+                payload = {"items": [dict(item)], "by_key": {"sample": dict(item)}}
+                record = module.NestedValues.from_serializer_dict(payload)
+                json_item = {
+                    "at": instant.isoformat(),
+                    "blob": base64.b64encode(item["blob"]).decode(),
+                    "count": 0,
+                    "labels": ["zero"], "labels_by_key": {"sample": "one"},
+                }
+                self.assertEqual(json.loads(record.to_byte_array("application/json")),
+                                 {"items": [json_item], "by_key": {"sample": json_item}})
+                encoded = record.to_byte_array("application/vnd.apache.avro+avro")
+                reader_schema = avro.schema.parse(json.dumps(schema))
+                decoded = avro.io.DatumReader(reader_schema).read(
+                    avro.io.BinaryDecoder(io.BytesIO(encoded)))
+                self.assertEqual(decoded, payload)
+                restored = module.NestedValues.from_data(
+                    encoded, "application/vnd.apache.avro+avro")
+                self.assertEqual(restored, record)
+                self.assertIsInstance(restored.items[0], module.Observation)
+                self.assertIsInstance(restored.by_key["sample"], module.Observation)
+                empty = module.NestedValues(items=[], by_key={})
+                self.assertEqual(json.loads(empty.to_byte_array("application/json")),
+                                 {"items": [], "by_key": {}})
+            finally:
+                sys.path.remove(generated_src)
+                for name in list(sys.modules):
+                    if name == "nested_values" or name.startswith("nested_values."):
+                        sys.modules.pop(name)
+
     def test_nullable_falsy_values_survive_json_and_avro_roundtrips(self):
         import io
         import json
