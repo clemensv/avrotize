@@ -14,6 +14,11 @@ from dataclasses import dataclass
 {%- if dataclasses_json_annotation %}
 import dataclasses_json
 from dataclasses_json import Undefined, dataclass_json
+{%- for field in fields if field.type == "bytes" or field.type == "typing.Optional[bytes]" %}
+{%- if loop.first %}
+import base64
+{%- endif %}
+{%- endfor %}
 {%- for field in fields if field.type == "datetime.datetime" or field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" or field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
 {%- if loop.first %}
 from marshmallow import fields
@@ -68,8 +73,10 @@ class {{ class_name }}:
     {% for field in fields %}
     {%- set isdatetime = field.type == "datetime.datetime" or field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
     {%- set isdate = field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
-    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdatetime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdate -%}, encoder=lambda d: d.date().isoformat() if isinstance(d, datetime.datetime) else d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
+    {%- set isbytes = field.type == "bytes" or field.type == "typing.Optional[bytes]" %}
+    {{ field.name }}: {{ field.type }}=dataclasses.field(kw_only=True{% if dataclasses_json_annotation %}, metadata=dataclasses_json.config(field_name="{{ field.original_name }}"{%- if isdatetime -%}, encoder=lambda d: d.isoformat() if isinstance(d, datetime.datetime) else d if d else None, decoder=lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.DateTime(format='iso'){%- elif isdate -%}, encoder=lambda d: d.date().isoformat() if isinstance(d, datetime.datetime) else d.isoformat() if isinstance(d, datetime.date) else d if d else None, decoder=lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None, mm_field=fields.Date(format='iso'){%- elif isbytes -%}, encoder=lambda b: base64.b64encode(b).decode('ascii') if b is not None else None, decoder=lambda b: base64.b64decode(b, validate=True) if isinstance(b, str) else b{%- endif -%}){% if xml_annotation %} | {{ field.xml_metadata }}{% endif %}{%- elif xml_annotation %}, metadata={{ field.xml_metadata }}{%- endif %})
     {%- endfor %}
+    _serializer_field_names: typing.ClassVar[frozenset[str]] = frozenset({{ fields | map(attribute='original_name') | list | tojson }})
     {% if avro_annotation %}
     AvroType: typing.ClassVar[avro.schema.Schema] = avro.schema.make_avsc_object(
         json.loads("{{ avro_schema_json }}"), avro.name.Names()
@@ -82,6 +89,12 @@ class {{ class_name }}:
         {% filter indent(8) %}
         {{- init_fields }}
         {%- endfilter %}
+
+    {% if has_union_fields %}
+    @staticmethod
+    def _invalid_union_value(field_name: str, value: typing.Any) -> typing.NoReturn:
+        raise ValueError(f"Value for union field {field_name!r} does not match a branch: {type(value).__name__}")
+    {% endif %}
 
     @classmethod
     def from_serializer_dict(cls, data: dict) -> '{{ class_name }}':
@@ -102,12 +115,16 @@ class {{ class_name }}:
         {%- endif %}
         {%- set isdatetime = field.type == "datetime.datetime" or field.type == "datetime" or field.type == "typing.Optional[datetime.datetime]" %}
         {%- set isdate = field.type == "datetime.date" or field.type == "typing.Optional[datetime.date]" %}
+        {%- set isbytes = field.type == "bytes" or field.type == "typing.Optional[bytes]" %}
         {%- if dataclasses_json_annotation and isdatetime %}
         if '{{ field.name }}' in data:
             data['{{ field.name }}'] = (lambda d: datetime.datetime.fromisoformat(d) if isinstance(d, str) else d if d else None)(data['{{ field.name }}'])
         {%- elif dataclasses_json_annotation and isdate %}
         if '{{ field.name }}' in data:
             data['{{ field.name }}'] = (lambda d: datetime.date.fromisoformat(d) if isinstance(d, str) else d if d else None)(data['{{ field.name }}'])
+        {%- elif dataclasses_json_annotation and isbytes %}
+        if '{{ field.name }}' in data and isinstance(data['{{ field.name }}'], str):
+            data['{{ field.name }}'] = base64.b64decode(data['{{ field.name }}'], validate=True)
         {%- endif %}
         {%- endfor %}
         return cls(**data)
@@ -134,6 +151,10 @@ class {{ class_name }}:
         def _resolve_enum(v):
             if isinstance(v,enum.Enum):
                 return v.value
+            if isinstance(v, list):
+                return [_resolve_enum(item) for item in v]
+            if isinstance(v, dict):
+                return {key: _resolve_enum(item) for key, item in v.items()}
             return v
         def _fix_key(k):
             return k[:-1] if k.endswith('_') else k

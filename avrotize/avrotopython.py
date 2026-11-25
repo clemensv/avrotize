@@ -232,7 +232,8 @@ class AvroToPython:
                 else:
                     return t
             else:
-                return f"typing.Union[{', '.join(self.convert_avro_type_to_python(t, parent_package, import_types) for t in non_null_types)}]"
+                union_type = f"typing.Union[{', '.join(self.convert_avro_type_to_python(t, parent_package, import_types) for t in non_null_types)}]"
+                return f"typing.Optional[{union_type}]" if 'null' in avro_type else union_type
         elif isinstance(avro_type, dict):
             if avro_type['type'] == 'record':
                 class_ref = self.generate_class(avro_type, parent_package, write_file=True)
@@ -265,10 +266,10 @@ class AvroToPython:
             return f"{field_type}({field_ref})"
         elif field_type.startswith("typing.List["):
             inner_type = get_typing_args_from_string(field_type)[0]
-            return f"{field_ref} if isinstance({field_ref}, list) else [{self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for v in {field_ref}] if {field_ref} else None"
+            return f"[{self.init_field_value(inner_type, field_name, inner_type in enum_types, 'v', enum_types)} for v in {field_ref}] if {field_ref} is not None else None"
         elif field_type.startswith("typing.Dict["):
             inner_type = get_typing_args_from_string(field_type)[1]
-            return f"{field_ref} if isinstance({field_ref}, dict) else {{k: {self.init_field_value(inner_type, field_name, field_is_enum, 'v', enum_types)} for k, v in {field_ref}.items()}} if {field_ref} else None"
+            return f"{{k: {self.init_field_value(inner_type, field_name, inner_type in enum_types, 'v', enum_types)} for k, v in {field_ref}.items()}} if {field_ref} is not None else None"
         elif field_type.startswith("typing.Optional["):
             inner_type = get_typing_args_from_string(field_type)[0]
             initializer = self.init_field_value(inner_type, field_name, field_is_enum, field_ref, enum_types)
@@ -284,9 +285,20 @@ class AvroToPython:
         """Initialize the field value based on the Union type."""
         init_statements = []
         for field_union_type in union_args:
+            origin = field_union_type.split("[", 1)[0]
+            runtime_type = {"typing.List": "list", "typing.Dict": "dict"}.get(origin, field_union_type)
+            condition = f"isinstance({field_ref}, {runtime_type})"
+            if field_union_type in enum_types:
+                condition += f" or {field_ref} in [member.value for member in {field_union_type}]"
+            elif runtime_type not in (
+                "typing.Any", "int", "str", "float", "bool", "bytes", "Decimal",
+                "decimal.Decimal", "datetime.datetime", "datetime.date", "datetime.time",
+                "datetime.timedelta", "uuid.UUID", "list", "dict",
+            ):
+                condition += f" or (isinstance({field_ref}, dict) and set({field_ref}) == {runtime_type}._serializer_field_names)"
             init_statements.append(
-                f"{self.init_field_value(field_union_type, field_name, field_union_type in enum_types, field_ref, enum_types)} if isinstance({field_ref}, {field_union_type}) else")
-        return ' '.join(init_statements) + ' None'
+                f"({self.init_field_value(field_union_type, field_name, field_union_type in enum_types, field_ref, enum_types)}) if ({condition}) else")
+        return ' '.join(init_statements) + f" self._invalid_union_value({field_name!r}, {field_ref})"
 
     def init_fields(self, fields: List[Dict[str, Any]], enum_types: List[str]) -> str:
         """Initialize the fields of a class."""
@@ -385,6 +397,7 @@ class AvroToPython:
             xml_runtime_module=(f'{self.base_package.lower()}.xml_runtime' if self.base_package else '_avrotize_xml_runtime'),
             avro_schema_json=avro_schema_json,
             init_fields=self.init_fields(fields, enum_types),
+            has_union_fields=any("typing.Union[" in field["type"] for field in fields),
         )
 
         if write_file:
