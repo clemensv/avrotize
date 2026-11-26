@@ -2,6 +2,22 @@ All notable changes to Avrotize are documented in this file.
 
 ## [Unreleased]
 
+## [3.9.8] - 2026-11-26
+
+### Fixed
+
+- Generated Python optional fields preserve zero, false and empty values
+  through JSON and Avro round trips
+  ([#591](https://github.com/clemensv/avrotize/issues/591)).
+- Generated Python record unions accept later branches and dictionary inputs,
+  preserve nullable unions, and reject unmatched values
+  ([#594](https://github.com/clemensv/avrotize/issues/594)).
+- Nested Python array and map values are normalized into their generated
+  record and enum types. JSON retains ISO timestamps, and Avro receives enum
+  symbols ([#593](https://github.com/clemensv/avrotize/issues/593)).
+- Generated Python JSON encoders and decoders use base64 for direct and
+  optional byte fields.
+
 ## [3.9.7] - 2026-11-18
 
 ### Fixed
